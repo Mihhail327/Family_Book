@@ -9,30 +9,22 @@ from app.logger import log_action, log_error
 # 1. Проверяем, какая база используется
 is_sqlite = settings.DATABASE_URL.startswith("sqlite")
 
-# 2. Настраиваем аргументы подключения (для Postgres оставляем пустыми)
-connect_args = {"check_same_thread": False} if is_sqlite else {}
-
-engine = create_engine(
-    settings.DATABASE_URL, 
-    connect_args=connect_args
-)
-
-# 3. ВКЛЮЧАЕМ ПРАГМУ ТОЛЬКО ЕСЛИ ЭТО SQLITE
+# 2. Настраиваем движок и события в зависимости от типа базы
 if is_sqlite:
+    engine = create_engine(
+        settings.DATABASE_URL, 
+        connect_args={"check_same_thread": False}
+    )
+    
+    # Включаем PRAGMA только для SQLite
     @event.listens_for(Engine, "connect")
     def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
-        # Эта команда нужна только для SQLite
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
-
-# --- ВКЛЮЧЕНИЕ КАСКАДНОГО УДАЛЕНИЯ ---
-@event.listens_for(Engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    # Без этой команды SQLite проигнорирует ondelete="CASCADE" в моделях
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
+else:
+    # Для PostgreSQL (Render) создаем чистый engine БЕЗ событий
+    engine = create_engine(settings.DATABASE_URL)
 
 def create_db_and_tables():
     """Инициализация базы данных: создание таблиц и профиля админа."""
