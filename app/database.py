@@ -6,17 +6,25 @@ from app.models import User
 from app.security import hash_password
 from app.logger import log_action, log_error
 
-# Проверяем, используем ли мы SQLite
+# 1. Проверяем, какая база используется
 is_sqlite = settings.DATABASE_URL.startswith("sqlite")
 
-# Настройки подключения: для SQLite отключаем проверку потоков, 
-# для других баз (PostgreSQL) оставляем словарь пустым.
+# 2. Настраиваем аргументы подключения (для Postgres оставляем пустыми)
 connect_args = {"check_same_thread": False} if is_sqlite else {}
 
 engine = create_engine(
     settings.DATABASE_URL, 
     connect_args=connect_args
 )
+
+# 3. ВКЛЮЧАЕМ ПРАГМУ ТОЛЬКО ЕСЛИ ЭТО SQLITE
+if is_sqlite:
+    @event.listens_for(Engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        # Эта команда нужна только для SQLite
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 # --- ВКЛЮЧЕНИЕ КАСКАДНОГО УДАЛЕНИЯ ---
 @event.listens_for(Engine, "connect")
