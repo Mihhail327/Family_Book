@@ -1,0 +1,43 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.env
+.env.dev
+.env.test
+.env.prod
+
+# --- Databases ---
+*.db
+*.sqlite3
+family_book.db
+dev_family_book.db
+test_family_book.db
+
+# --- Logs ---
+logs/
+*.log
+
+# --- OS / IDE ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Uploads (Не пушим личные фото семьи) ---
+app/static/uploads/posts/*
+app/static/uploads/avatars/*
+
+# Исключения: оставляем пустые папки в репозитории через .gitkeep
+!app/static/uploads/posts/.gitkeep
+!app/static/uploads/avatars/.gitkeep
+
+# --- Poetry ---
+.poetry/
+dist/
+
+*.exe

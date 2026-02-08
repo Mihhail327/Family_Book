@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Присоединиться | FamilyBook{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[80vh]">
+    <div class="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-xl w-full max-w-md">
+        
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-black text-slate-900 dark:text-white tracking-tighter uppercase">Присоединиться</h1>
+            <p class="text-slate-500 text-sm mt-2">Введите ваше имя, чтобы войти в семейную ленту</p>
+        </div>
+
+        {% if error %}
+        <div class="bg-red-50 text-red-500 p-4 rounded-2xl mb-4 text-sm text-center border border-red-100">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form action="/register" method="post" enctype="multipart/form-data" class="space-y-4">
+            <div class="flex flex-col items-center mb-6">
+                <label class="relative cursor-pointer group">
+                    <div id="avatar-preview" class="w-24 h-24 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center overflow-hidden transition-all group-hover:border-blue-500">
+                        <span class="text-3xl group-hover:scale-110 transition-transform">👤</span>
+                    </div>
+                    <div class="absolute bottom-0 right-0 bg-blue-600 text-white p-1.5 rounded-full border-2 border-white dark:border-slate-900">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4" />
+                        </svg>
+                    </div>
+                    <input type="file" name="avatar" class="hidden" accept="image/*" onchange="previewAvatar(event)">
+                </label>
+                <span class="text-[10px] text-slate-400 uppercase font-bold mt-2 tracking-widest">Ваше фото (необязательно)</span>
+            </div>
+
+            <input type="text" name="display_name" placeholder="Как вас зовут? (напр. Дядя Ваня)" required 
+                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-2xl text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+            
+            <button type="submit" 
+                class="w-full bg-blue-600 text-white py-4 rounded-2xl text-lg font-black hover:bg-blue-500 active:scale-[0.97] transition-all shadow-lg shadow-blue-500/20 uppercase tracking-tight">
+                Войти в ленту
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+function previewAvatar(event) {
+    const reader = new FileReader();
+    reader.onload = function(){
+        const output = document.getElementById('avatar-preview');
+        output.innerHTML = `<img src="${reader.result}" class="w-full h-full object-cover">`;
+        output.classList.remove('border-dashed');
+        output.classList.add('border-solid', 'border-blue-500');
+    };
+    if (event.target.files[0]) {
+        reader.readAsDataURL(event.target.files[0]);
+    }
+}
+</script>
+{% endblock %}

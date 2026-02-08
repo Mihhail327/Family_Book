@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {% if post.is_gift %}🎁 Сюрприз!{% else %}Пост от {{ post.author.display_name }}{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto pt-6 px-4 pb-24">
+    
+    <a href="/" class="inline-flex items-center text-slate-500 hover:text-blue-600 mb-6 transition-colors no-tap">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+        </svg>
+        Назад в ленту
+    </a>
+
+    <article class="post-card bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden relative animate-in fade-in zoom-in duration-300">
+        
+        <div class="p-6 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+            <div class="flex items-center space-x-4">
+                <img src="{{ post.author.avatar_url or 'https://ui-avatars.com/api/?background=2563eb&color=fff&name=' + post.author.display_name|urlencode }}" 
+                     class="w-12 h-12 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-700" alt="Avatar">
+                <div>
+                    <h1 class="font-bold text-lg text-slate-900 dark:text-slate-100">{{ post.author.display_name }}</h1>
+                    <p class="text-xs text-slate-400 uppercase">
+                        {{ post.created_at.strftime('%d.%m.%Y • %H:%M') if post.created_at else 'Только что' }}
+                    </p>
+                </div>
+            </div>
+            
+            {% if user and (post.author_id == user.id or user.role == 'admin') %}
+            <form action="/posts/delete/{{ post.id }}" method="post" onsubmit="return confirm('Удалить пост?')">
+                <button type="submit" class="text-slate-400 hover:text-red-500 transition-colors p-2 no-tap">✕</button>
+            </form>
+            {% endif %}
+        </div>
+
+        <div class="p-6">
+            <p class="text-slate-800 dark:text-slate-200 whitespace-pre-wrap text-lg leading-relaxed">{{ post.content }}</p>
+        </div>
+
+        {% if post.images %}
+        <div class="px-6 pb-6 space-y-4">
+            {% for img in post.images %}
+            <div class="rounded-2xl overflow-hidden shadow-sm bg-slate-100 dark:bg-slate-800">
+                <img src="{{ img.url }}" class="w-full h-auto object-cover" alt="Image" loading="lazy">
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 p-2">
+            <form action="/posts/{{ post.id }}/like" method="post">
+                {% set is_liked = user in post.likers %}
+                <button type="submit" 
+                        class="no-tap w-full py-4 hover:bg-white dark:hover:bg-slate-800 rounded-2xl transition-all flex items-center justify-center space-x-2 group active:scale-95 shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
+                    <span class="group-hover:scale-125 transition-transform text-2xl">
+                        {% if is_liked %}❤️{% else %}🤍{% endif %}
+                    </span>
+                    <span class="font-bold text-lg {% if is_liked %}text-red-500{% else %}text-slate-500 dark:text-slate-400{% endif %}">
+                        {{ post.likers|length }}
+                    </span>
+                </button>
+            </form>
+        </div>
+
+    </article>
+
+    <div id="comments" class="bg-slate-50 dark:bg-slate-950/50 rounded-3xl mt-6 p-6 border border-slate-200 dark:border-slate-800 shadow-inner">
+        <h3 class="font-bold text-lg mb-6 dark:text-white flex items-center">
+            💬 Комментарии 
+            <span class="ml-2 bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">
+                {{ post.comments|length }}
+            </span>
+        </h3>
+
+        <div class="space-y-6 mb-8">
+            {% for comment in post.comments %}
+            <div class="flex space-x-3 group animate-in slide-in-from-bottom-2 duration-500">
+                <img src="{{ comment.author.avatar_url or 'https://ui-avatars.com/api/?background=random&name=' + comment.author.display_name|urlencode }}" 
+                     class="w-10 h-10 rounded-full mt-1 border border-slate-200 dark:border-slate-700 shadow-sm">
+                
+                <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl rounded-tl-none shadow-sm border border-slate-200 dark:border-slate-800 flex-1">
+                    <div class="flex justify-between items-baseline mb-1">
+                        <span class="font-bold text-sm text-slate-900 dark:text-slate-200">{{ comment.author.display_name }}</span>
+                        <span class="text-[10px] text-slate-400">
+                            {{ comment.created_at.strftime('%d.%m %H:%M') if comment.created_at else '' }}
+                        </span>
+                    </div>
+                    <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{{ comment.content }}</p>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-center py-8">
+                <div class="text-4xl mb-2 opacity-30">💭</div>
+                <p class="text-slate-400 text-sm">Здесь пока тихо... Будьте первым!</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <form action="/posts/{{ post.id }}/comment" method="post" class="flex gap-3 items-start sticky bottom-4 z-10">
+            <img src="{{ user.avatar_url or 'https://ui-avatars.com/api/?background=2563eb&color=fff&name=' + user.display_name|urlencode }}" 
+                 class="w-10 h-10 rounded-full border-2 border-white dark:border-slate-800 shadow-md hidden sm:block">
+            
+            <div class="flex-1 relative shadow-lg rounded-full">
+                <input type="text" name="content" required placeholder="Написать комментарий..." autocomplete="off"
+                       class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-full py-3 pl-5 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-all">
+                
+                <button type="submit" class="no-tap absolute right-1.5 top-1.5 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full transition-colors active:scale-90">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 transform rotate-90">
+                        <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                    </svg>
+                </button>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+{% if post.is_gift %}
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const duration = 3000;
+        const animationEnd = Date.now() + duration;
+        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1000 };
+        const random = (min, max) => Math.random() * (max - min) + min;
+
+        const interval = setInterval(function() {
+            const timeLeft = animationEnd - Date.now();
+            if (timeLeft <= 0) return clearInterval(interval);
+            const particleCount = 50 * (timeLeft / duration);
+            confetti(Object.assign({}, defaults, { particleCount, origin: { x: random(0.1, 0.3), y: Math.random() - 0.2 } }));
+            confetti(Object.assign({}, defaults, { particleCount, origin: { x: random(0.7, 0.9), y: Math.random() - 0.2 } }));
+        }, 250);
+    });
+</script>
+{% endif %}
+{% endblock %}

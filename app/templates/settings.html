@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Настройки — FamilyBook{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto pt-8 px-4 pb-24" x-data="{ 
+    hearts: localStorage.getItem('hearts_enabled') !== 'false'
+}">
+    <h1 class="text-3xl font-black mb-8 dark:text-white flex items-center">
+        <span class="mr-3">⚙️</span> Настройки
+    </h1>
+
+    <div class="space-y-6">
+        <section class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
+            <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 ml-1">Личные данные</h2>
+            
+            <form action="/update-name" method="post" class="space-y-6">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2 ml-1">Ваше имя в семье</label>
+                    <input type="text" name="display_name" value="{{ user.display_name }}" required
+                           class="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-blue-500 rounded-2xl px-5 py-3.5 outline-none dark:text-white font-bold transition-all">
+                </div>
+
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl transition-all shadow-lg shadow-blue-500/20 active:scale-95">
+                    Сохранить имя
+                </button>
+            </form>
+        </section>
+
+        <section class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
+            <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 ml-1">Интерфейс</h2>
+
+            <div class="flex items-center justify-between p-2">
+                <div>
+                    <p class="font-bold text-slate-900 dark:text-white">Салют при лайке</p>
+                    <p class="text-xs text-slate-500">Включите для красоты, выключите если тормозит</p>
+                </div>
+                
+                <button @click="hearts = !hearts; localStorage.setItem('hearts_enabled', hearts)" 
+                        type="button"
+                        class="relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none"
+                        :class="hearts ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'">
+                    <span :class="hearts ? 'translate-x-7' : 'translate-x-1'" 
+                          class="inline-block h-6 w-6 transform rounded-full bg-white transition-transform shadow-md"></span>
+                </button>
+            </div>
+        </section>
+
+        <a href="/logout" class="block w-full text-center py-4 text-red-500 font-bold hover:bg-red-50 dark:hover:bg-red-500/10 rounded-2xl transition-colors no-tap">
+            🚪 Выйти из системы
+        </a>
+    </div>
+</div>
+{% endblock %}

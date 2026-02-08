@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru" class="h-full bg-slate-950">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Вход | FamilyBook</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .bg-glow {
+            background: radial-gradient(circle at center, rgba(37, 99, 235, 0.15) 0%, transparent 70%);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 flex items-center justify-center min-h-screen p-4 bg-glow">
+    
+    <div class="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl w-full max-w-md transform transition-all">
+        
+        <div class="text-center mb-8">
+            <span class="text-5xl block mb-2">📖</span>
+            <h1 class="text-4xl font-black text-blue-500 tracking-tighter uppercase">FamilyBook</h1>
+            <p class="text-slate-500 font-medium mt-2">Добро пожаловать домой! 🏠</p>
+        </div>
+
+        {% if error %}
+        <div class="bg-red-500/10 border border-red-500/50 p-4 rounded-2xl mb-6 animate-pulse">
+            <p class="text-red-400 text-sm text-center font-bold">{{ error }}</p>
+        </div>
+        {% endif %}
+
+        <form action="/login" method="post" class="space-y-4">
+            <div>
+                <label class="block text-slate-400 text-xs font-bold uppercase tracking-widest mb-2 ml-4">Кто заходит?</label>
+                <input type="text" name="display_name" placeholder="Ваше имя (как при регистрации)" 
+                    required 
+                    class="w-full bg-slate-800 border border-slate-700 p-4 rounded-2xl text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+            </div>
+            
+            <button type="submit" 
+                class="w-full bg-blue-600 text-white py-4 rounded-2xl text-lg font-black hover:bg-blue-500 active:scale-[0.97] transition-all shadow-lg shadow-blue-500/20">
+                Войти в Семью
+            </button>
+        </form>
+
+        <div class="relative my-8">
+            <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
+            <div class="relative flex justify-center text-xs uppercase"><span class="bg-slate-900 px-4 text-slate-600 font-bold">или</span></div>
+        </div>
+
+        <div class="text-center">
+            <p class="text-slate-500 text-sm mb-4">Впервые здесь?</p>
+            <a href="/register" 
+                class="inline-block bg-slate-800 text-slate-300 border border-slate-700 px-8 py-3 rounded-2xl text-sm font-black hover:bg-slate-700 hover:text-white active:scale-95 transition-all">
+                Представиться Семье
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>

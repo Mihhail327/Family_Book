@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}{{ target_user.display_name }} — Профиль{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto pt-8 px-4 pb-24">
+    
+    <div class="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm mb-8 text-center relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+        
+        <div class="relative inline-block mb-4 group">
+            <img src="{{ target_user.avatar_url }}" 
+                 alt="Avatar" 
+                 class="w-32 h-32 rounded-full border-4 border-white dark:border-slate-800 shadow-xl object-cover">
+            
+            {% if target_user.id == user.id %}
+            <form action="/update-avatar" method="post" enctype="multipart/form-data" class="absolute inset-0">
+                <label class="w-full h-full rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center text-white text-3xl">
+                    <span>📸</span>
+                    <input type="file" name="avatar" class="hidden" accept="image/*" onchange="this.form.submit()">
+                </label>
+            </form>
+            {% endif %}
+        </div>
+
+        <h1 class="text-2xl font-black text-slate-900 dark:text-white mb-1">
+            {{ target_user.display_name }}
+        </h1>
+        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium mb-6">
+            @{{ target_user.username }}
+        </p>
+
+        {% if target_user.id == user.id %}
+        <div class="flex justify-center">
+            <a href="/settings" class="inline-flex items-center px-6 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-full text-xs font-bold transition-all">
+                ⚙️ Настройки
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="space-y-6">
+        <div class="flex items-center justify-between px-4 mb-4">
+            <h3 class="text-xs font-black uppercase tracking-widest text-slate-400">Публикации</h3>
+            <span class="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
+                {{ posts|length }} постов
+            </span>
+        </div>
+        
+        {% if posts %}
+            {% for post in posts %}
+                {% include 'includes/post_card.html' %}
+            {% endfor %}
+        {% else %}
+            <div class="text-center py-20 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl">
+                <p class="text-slate-400">Нет публикаций</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

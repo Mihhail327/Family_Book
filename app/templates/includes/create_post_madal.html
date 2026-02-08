@@ -1,0 +1,59 @@
+<div id="createPostModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/90 backdrop-blur-sm hidden p-4 transition-opacity duration-300 opacity-0">
+    <div class="bg-slate-900 w-full max-w-lg rounded-t-3xl sm:rounded-3xl border border-slate-800 shadow-2xl p-6 transform transition-all translate-y-full duration-300" id="modalContent">
+        
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-black text-white tracking-tight">Новый пост</h2>
+            <button onclick="toggleModal('createPostModal')" class="text-slate-500 hover:text-white text-2xl transition-colors p-2">&times;</button>
+        </div>
+        
+        <form action="/posts/create" method="post" enctype="multipart/form-data" id="postForm">
+            <textarea name="content" rows="4" 
+                class="w-full bg-slate-800 rounded-2xl p-4 text-slate-100 focus:ring-2 focus:ring-blue-500 outline-none resize-none mb-4 transition-shadow" 
+                placeholder="Расскажите что-нибудь семье..."></textarea>
+            
+            <div id="preview-area" class="grid grid-cols-4 gap-2 mb-4 empty:hidden"></div>
+
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <label class="cursor-pointer bg-slate-800 p-3 rounded-xl hover:bg-slate-700 transition active:scale-90 flex items-center justify-center border border-slate-700">
+                        <span class="text-xl" title="Добавить фото">📸</span>
+                        <input type="file" name="files" id="fileInput" multiple accept="image/*" class="hidden" onchange="handlePreview(event)">
+                    </label>
+
+                    <input type="hidden" name="is_gift" id="isGiftInput" value="false">
+                    <button type="button" id="giftBtn" onclick="toggleGift()" 
+                            class="bg-slate-800 p-3 rounded-xl hover:bg-slate-700 transition-all border border-transparent flex items-center space-x-2 btn-press border-slate-700">
+                        <span id="giftIcon">🎁</span>
+                        <span class="text-[10px] text-slate-400 font-black uppercase tracking-tighter" id="giftText">Обычный пост</span>
+                    </button>
+                </div>
+
+                <button type="submit" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black hover:bg-blue-500 active:scale-95 transition-all shadow-lg shadow-blue-500/20">
+                    Опубликовать
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+/**
+ * Специфическая логика для переключения режима подарка
+ */
+function toggleGift() {
+    const input = document.getElementById('isGiftInput');
+    const btn = document.getElementById('giftBtn');
+    const text = document.getElementById('giftText');
+    const icon = document.getElementById('giftIcon');
+    
+    const isNowGift = input.value === 'false';
+    input.value = isNowGift ? 'true' : 'false';
+    
+    btn.classList.toggle('border-yellow-500/50', isNowGift);
+    btn.classList.toggle('bg-yellow-500/10', isNowGift);
+    text.innerText = isNowGift ? 'ЭТО ПОДАРОК!' : 'Обычный пост';
+    text.classList.toggle('text-yellow-500', isNowGift);
+    text.classList.toggle('text-slate-400', !isNowGift);
+    icon.innerText = isNowGift ? '✨' : '🎁';
+}
+</script>
