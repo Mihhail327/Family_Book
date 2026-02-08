@@ -6,10 +6,16 @@ from app.models import User
 from app.security import hash_password
 from app.logger import log_action, log_error
 
-# Создаем движок (engine) для работы с SQLite. 
+# Проверяем, используем ли мы SQLite
+is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+
+# Настройки подключения: для SQLite отключаем проверку потоков, 
+# для других баз (PostgreSQL) оставляем словарь пустым.
+connect_args = {"check_same_thread": False} if is_sqlite else {}
+
 engine = create_engine(
     settings.DATABASE_URL, 
-    connect_args={"check_same_thread": False}
+    connect_args=connect_args
 )
 
 # --- ВКЛЮЧЕНИЕ КАСКАДНОГО УДАЛЕНИЯ ---
