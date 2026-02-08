@@ -35,25 +35,32 @@ def create_db_and_tables():
         return
 
     with Session(engine) as session:
-        admin_exists = session.exec(select(User).where(User.username == "admin")).first()
-        
-        if not admin_exists:
-            try:
+        try:
+            # 1. Ищем существующего админа
+            admin_user = session.exec(select(User).where(User.username == "admin")).first()
+            
+            if admin_user:
+                # 2. Если нашли — принудительно обновляем ему пароль и имя
+                admin_user.hashed_password = hash_password("kP9$vR2_nZ7!mX")
+                admin_user.display_name = "Михаил" 
+                session.add(admin_user)
+                session.commit()
+                log_action("SYSTEM", "DB_UPDATE", "Профиль админа (Михаил) обновлен")
+            else:
+                # 3. Если вдруг его нет — создаем с нуля
                 admin = User(
                     username="admin",
-                    display_name="Глава Семьи",
-                    hashed_password=hash_password("admin123"),
+                    display_name="Михаил",
+                    hashed_password=hash_password("kP9$vR2_nZ7!mX"),
                     role="admin",
-                    # ВАЖНО: Убедись, что файл на диске называется именно так. 
-                    # Если ты скачал пельмешку как JPG, переименуй файл в default_avatar.png
                     avatar_url="/static/default_avatar.png" 
                 )
                 session.add(admin)
                 session.commit()
-                log_action("SYSTEM", "DB_INIT", "Первичный запуск: создан профиль admin (Глава Семьи)")
-            except Exception as e:
-                session.rollback()
-                log_error("DB_INIT", f"Ошибка при создании админа: {e}")
+                log_action("SYSTEM", "DB_INIT", "Первичный запуск: создан профиль admin (Михаил)")
+        except Exception as e:
+            session.rollback()
+            log_error("DB_INIT", f"Ошибка при работе с профилем админа: {e}")
 
 def get_session():
     """Генератор сессий для FastAPI (Dependency Injection)."""
