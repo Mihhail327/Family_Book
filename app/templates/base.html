@@ -1,34 +1,46 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>{% block title %}FamilyBook{% endblock %}</title>
-    
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#2563eb">
-    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#2563eb" />
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png" />
 
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    
-    <script defer src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
-    
-    <script>
-        tailwind.config = { darkMode: 'class' }
-    </script>
-    
-    <style>
-        /* Убираем синюю подсветку при нажатии на мобильных */
-        body { -webkit-tap-highlight-color: transparent; }
-        /* Скрываем элементы Alpine до загрузки скрипта */
-        [x-cloak] { display: none !important; }
-    </style>
-</head>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"
+    ></script>
 
-<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-300"
-      x-data="{ 
+    <script>
+      tailwind.config = { darkMode: "class" };
+    </script>
+
+    <style>
+      /* Убираем синюю подсветку при нажатии на мобильных */
+      body {
+        -webkit-tap-highlight-color: transparent;
+      }
+      /* Скрываем элементы Alpine до загрузки скрипта */
+      [x-cloak] {
+        display: none !important;
+      }
+    </style>
+  </head>
+
+  <body
+    class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-300"
+    x-data="{ 
           darkMode: localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches),
           toggleTheme() {
               this.darkMode = !this.darkMode;
@@ -37,198 +49,308 @@
               else document.documentElement.classList.remove('dark');
           }
       }"
-      :class="{ 'dark': darkMode }"
-      x-init="$watch('darkMode', val => val ? document.documentElement.classList.add('dark') : document.documentElement.classList.remove('dark')); 
-              if(darkMode) document.documentElement.classList.add('dark');">
-
+    :class="{ 'dark': darkMode }"
+    x-init="$watch('darkMode', val => val ? document.documentElement.classList.add('dark') : document.documentElement.classList.remove('dark')); 
+              if(darkMode) document.documentElement.classList.add('dark');"
+  >
     {% include 'includes/navbar.html' %}
 
-    <main class="min-h-screen pb-24">
-        {% block content %}{% endblock %}
-    </main>
+    <main class="min-h-screen pb-24">{% block content %}{% endblock %}</main>
 
-    {% block modals %}{% endblock %}
-
-    <audio id="notificationSound" src="/static/sounds/notification.mp3" preload="auto"></audio>
-
-{% set flash = get_flashed_messages(request) %}
-{% if flash %}
-<div x-data="{ show: true }" 
-     x-show="show" 
-     x-init="
-        setTimeout(() => show = false, 4000);
-        // Звук сработает один раз при появлении любого сообщения
-        document.getElementById('notificationSound').play().catch(e => console.log('Звук заблокирован'));
-     "
-     x-transition:enter="transition ease-out duration-300"
-     x-transition:enter-start="opacity-0 transform translate-y-[-20px]"
-     x-transition:enter-end="opacity-100 transform translate-y-0"
-     x-transition:leave="transition ease-in duration-300"
-     x-transition:leave-start="opacity-100 transform translate-y-0"
-     x-transition:leave-end="opacity-0 transform translate-y-[-20px]"
-     class="fixed top-20 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md"
-     x-cloak>
-    
-    <div class="flex items-center p-4 rounded-2xl shadow-2xl border backdrop-blur-md
-        {% if flash.category == 'success' %} bg-emerald-500/90 border-emerald-400 text-white
-        {% elif flash.category == 'error' %} bg-rose-500/90 border-rose-400 text-white
-        {% else %} bg-blue-500/90 border-blue-400 text-white {% endif %}">
-        
-        <div class="mr-3 text-2xl">
-            {% if flash.category == 'success' %} ✅
-            {% elif flash.category == 'error' %} ⚠️
-            {% else %} ℹ️ {% endif %}
+    {% block modals %}
+    <div
+      id="likes-modal"
+      class="fixed inset-0 z-[100] hidden bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 opacity-0 items-center justify-center p-4"
+      onclick="if (event.target === this) closeLikesModal();"
+    >
+      <div
+        id="modalContent"
+        class="bg-white dark:bg-slate-900 w-full max-w-xs rounded-3xl shadow-2xl transform transition-transform duration-300 translate-y-full overflow-hidden border border-slate-200 dark:border-slate-800"
+      >
+        <div
+          class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50"
+        >
+          <h3
+            class="font-bold text-slate-800 dark:text-white flex items-center gap-2 text-sm uppercase tracking-wider"
+          >
+            ❤️ Оценили
+          </h3>
+          <button
+            onclick="closeLikesModal()"
+            class="text-slate-400 hover:text-slate-600 p-2 no-tap"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              ></path>
+            </svg>
+          </button>
         </div>
-        
+
+        <div
+          id="likes-modal-content"
+          class="max-h-80 overflow-y-auto p-3 space-y-1 bg-white dark:bg-slate-900 /* Ширина скроллбара */ [&::-webkit-scrollbar]:w-1.5 /* Цвет дорожки */ [&::-webkit-scrollbar-track]:bg-transparent /* Цвет ползунка (светлая тема) */ [&::-webkit-scrollbar-thumb]:bg-slate-200 /* Цвет ползунка (темная тема) */ dark:[&::-webkit-scrollbar-thumb]:bg-slate-800 /* Закругление */ [&::-webkit-scrollbar-thumb]:rounded-full /* Эффект при наведении */ hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-700"
+        ></div>
+      </div>
+    </div>
+    {% endblock %}
+
+    <audio
+      id="notificationSound"
+      src="/static/sounds/notification.mp3"
+      preload="auto"
+    ></audio>
+
+    {% set flash = get_flashed_messages(request) %} {% if flash %}
+    <div
+      x-data="{ show: true }"
+      x-show="show"
+      x-init="
+            setTimeout(() => show = false, 4000);
+            document.getElementById('notificationSound').play().catch(e => console.log('Звук заблокирован'));
+         "
+      x-transition:enter="transition ease-out duration-300"
+      x-transition:enter-start="opacity-0 transform translate-y-[-20px]"
+      x-transition:enter-end="opacity-100 transform translate-y-0"
+      x-transition:leave="transition ease-in duration-300"
+      x-transition:leave-start="opacity-100 transform translate-y-0"
+      x-transition:leave-end="opacity-0 transform translate-y-[-20px]"
+      class="fixed top-20 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md"
+      x-cloak
+    >
+      <div
+        class="flex items-center p-4 rounded-2xl shadow-2xl border backdrop-blur-md {% if flash.category == 'success' %} bg-emerald-500/90 border-emerald-400 text-white {% elif flash.category == 'error' %} bg-rose-500/90 border-rose-400 text-white {% else %} bg-blue-500/90 border-blue-400 text-white {% endif %}"
+      >
+        <div class="mr-3 text-2xl">
+          {% if flash.category == 'success' %} ✅ {% elif flash.category ==
+          'error' %} ⚠️ {% else %} ℹ️ {% endif %}
+        </div>
+
         <div class="flex-1 font-medium">{{ flash.message }}</div>
 
-        <button @click="show = false" class="ml-4 opacity-70 hover:opacity-100 transition-opacity">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
+        <button
+          @click="show = false"
+          class="ml-4 opacity-70 hover:opacity-100 transition-opacity"
+        >
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            ></path>
+          </svg>
         </button>
+      </div>
     </div>
-</div>
-{% endif %}
+    {% endif %}
 
     <script>
-        // --- 1. PWA Service Worker ---
-        if ('serviceWorker' in navigator) {
-            // Регистрируем SW только после полной загрузки страницы
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').catch(err => console.error('PWA Error', err));
-            });
+      // --- 1. PWA Service Worker ---
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("/sw.js")
+            .catch((err) => console.error("PWA Error", err));
+        });
+      }
+
+      // --- 2. УПРАВЛЕНИЕ МОДАЛКАМИ (С АНИМАЦИЕЙ) ---
+      function toggleModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) {
+          console.error("Модальное окно не найдено:", modalId);
+          return;
         }
 
-        // --- 2. УПРАВЛЕНИЕ МОДАЛКАМИ ---
-       // --- 2. УПРАВЛЕНИЕ МОДАЛКАМИ (С АНИМАЦИЕЙ) ---
-function toggleModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (!modal) {
-        console.error("Модальное окно не найдено:", modalId);
-        return;
-    }
+        if (modal.classList.contains("hidden")) {
+          modal.classList.remove("hidden");
+          setTimeout(() => {
+            modal.classList.add("opacity-100");
+            modal.classList.remove("opacity-0");
+            const content = modal.querySelector("#modalContent");
+            if (content) content.classList.remove("translate-y-full");
+          }, 10);
+          document.body.style.overflow = "hidden";
+        } else {
+          modal.classList.remove("opacity-100");
+          modal.classList.add("opacity-0");
+          const content = modal.querySelector("#modalContent");
+          if (content) content.classList.add("translate-y-full");
 
-    if (modal.classList.contains('hidden')) {
-        // ОТКРЫВАЕМ
-        modal.classList.remove('hidden');
-        // Небольшая задержка, чтобы браузер успел применить удаление hidden
-        setTimeout(() => {
-            modal.classList.add('opacity-100');
-            modal.classList.remove('opacity-0');
-            // Если внутри есть контент с анимацией сдвига
-            const content = modal.querySelector('#modalContent');
-            if (content) content.classList.remove('translate-y-full');
-        }, 10);
-        document.body.style.overflow = 'hidden'; // Запрещаем скролл фона
-    } else {
-        // ЗАКРЫВАЕМ
-        modal.classList.remove('opacity-100');
-        modal.classList.add('opacity-0');
-        const content = modal.querySelector('#modalContent');
-        if (content) content.classList.add('translate-y-full');
-        
-        // Ждем окончания анимации (300мс) перед скрытием
-        setTimeout(() => {
-            modal.classList.add('hidden');
-            document.body.style.overflow = ''; // Возвращаем скролл
-        }, 300);
-    }
-}
+          setTimeout(() => {
+            modal.classList.add("hidden");
+            document.body.style.overflow = "";
+          }, 300);
+        }
+      }
 
-        // --- 3. ПРЕВЬЮ ФОТО ---
-        // Показывает выбранные картинки перед загрузкой поста
-        function handlePreview(event) {
-            const area = document.getElementById('preview-area');
-            if (!area) return;
-            area.innerHTML = ''; // Очищаем старые
-            
-            Array.from(event.target.files).forEach(file => {
-                const url = URL.createObjectURL(file);
-                // Создаем элемент img
-                const img = document.createElement('img');
-                img.src = url;
-                img.className = "w-24 h-24 object-cover rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm";
-                area.appendChild(img);
-            });
+      // --- 3. ПРЕВЬЮ ФОТО ---
+      function handlePreview(event) {
+        const area = document.getElementById("preview-area");
+        if (!area) return;
+        area.innerHTML = "";
+
+        Array.from(event.target.files).forEach((file) => {
+          const url = URL.createObjectURL(file);
+          const img = document.createElement("img");
+          img.src = url;
+          img.className =
+            "w-24 h-24 object-cover rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm";
+          area.appendChild(img);
+        });
+      }
+
+      // --- 4. ФУНКЦИЯ САЛЮТА ---
+      function triggerConfetti(x, y) {
+        if (typeof confetti !== "function") return;
+        const heart = confetti.shapeFromText({ text: "❤️", scalar: 2 });
+
+        confetti({
+          particleCount: 40,
+          spread: 80,
+          origin: { x: x, y: y },
+          shapes: [heart],
+          colors: ["#ef4444", "#ec4899", "#f472b6"],
+          scalar: 1.2,
+          gravity: 0.7,
+          ticks: 100,
+          zIndex: 10000,
+          disableForced3d: true,
+        });
+      }
+
+      // --- 5. ЛАЙКИ (AJAX + Анимация) ---
+      async function toggleLike(btn, postId) {
+        if (btn.dataset.loading === "true") return;
+        btn.dataset.loading = "true";
+
+        const iconSpan = btn.querySelector(".heart-icon");
+        const countSpan = btn.querySelector(".count");
+
+        if (!iconSpan || !countSpan) {
+          btn.dataset.loading = "false";
+          return;
         }
 
-        // --- 4. ФУНКЦИЯ САЛЮТА (Одиночный взрыв) ---
-        function triggerConfetti(x, y) {
-            if (typeof confetti !== 'function') return;
-            
-            // Создаем форму сердца
-            const heart = confetti.shapeFromText({ text: '❤️', scalar: 2 });
-            
-            confetti({
-                particleCount: 40,        // Количество частиц
-                spread: 80,               // Ширина разлета
-                origin: { x: x, y: y },   // Координаты центра кнопки
-                shapes: [heart],          // Форма
-                colors: ['#ef4444', '#ec4899', '#f472b6'], // Оттенки красного и розового
-                scalar: 1.2,              // Размер
-                gravity: 0.7,             // Скорость падения
-                ticks: 100,               // Время жизни частиц
-                zIndex: 10000,            // Поверх всего
-                disableForced3d: true     // Оптимизация для мобильных
-            });
+        const isLiked =
+          iconSpan.textContent.includes("❤️") ||
+          iconSpan.classList.contains("text-red-500");
+
+        if (isLiked) {
+          iconSpan.textContent = "🤍";
+          iconSpan.classList.remove("text-red-500");
+          let cnt = parseInt(countSpan.textContent) || 0;
+          countSpan.textContent = Math.max(0, cnt - 1);
+        } else {
+          iconSpan.textContent = "❤️";
+          iconSpan.classList.add("text-red-500");
+          let cnt = parseInt(countSpan.textContent) || 0;
+          countSpan.textContent = cnt + 1;
+
+          const rect = btn.getBoundingClientRect();
+          const x = (rect.left + rect.width / 2) / window.innerWidth;
+          const y = (rect.top + rect.height / 2) / window.innerHeight;
+          triggerConfetti(x, y);
         }
 
-        // --- 5. ЛАЙКИ (AJAX + Анимация) ---
-        async function toggleLike(btn, postId) {
-            // Защита от частых кликов (debounce)
-            if (btn.dataset.loading === "true") return;
-            btn.dataset.loading = "true";
+        try {
+          const res = await fetch(`/posts/${postId}/like`, { method: "POST" });
+          if (res.status === 401) window.location.href = "/login";
+        } catch (e) {
+          console.error("Ошибка лайка:", e);
+        } finally {
+          setTimeout(() => {
+            btn.dataset.loading = "false";
+          }, 300);
+        }
+      }
 
-            const iconSpan = btn.querySelector('.heart-icon');
-            const countSpan = btn.querySelector('.count');
-            
-            // Проверяем наличие элементов, чтобы не было ошибок
-            if (!iconSpan || !countSpan) {
-                btn.dataset.loading = "false";
-                return;
+      // --- 6. МОДАЛКА ЛАЙКОВ ---
+      async function openLikesModal(postId) {
+        const modal = document.getElementById("likes-modal");
+        const content = document.getElementById("likes-modal-content");
+
+        if (!modal || !content) return;
+
+        content.innerHTML = `
+                <div class="flex justify-center py-10">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+            `;
+
+        toggleModal("likes-modal");
+
+        try {
+          const response = await fetch(`/api/posts/${postId}/likers`);
+          if (!response.ok) throw new Error();
+
+          const users = await response.json();
+
+          if (users.length === 0) {
+            content.innerHTML =
+              '<p class="text-center text-slate-400 py-4">Пока никто не оценил</p>';
+            return;
+          }
+
+          content.innerHTML = users
+            .map(
+              (u) => `
+                    <div class="flex items-center space-x-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors group">
+                        <img src="${u.avatar_url || "/static/default_avatar.png"}" 
+                             class="w-10 h-10 rounded-full object-cover border border-slate-100 dark:border-slate-700 shadow-sm"
+                             onerror="this.src='/static/default_avatar.png'">
+                        <span class="font-bold text-sm text-slate-700 dark:text-slate-200 group-hover:text-blue-600 transition-colors">
+                            ${u.display_name}
+                        </span>
+                    </div>
+                `,
+            )
+            .join("");
+        } catch (e) {
+          content.innerHTML =
+            '<p class="text-center text-rose-500 py-4 text-sm">Не удалось загрузить список</p>';
+        }
+      }
+
+      function closeLikesModal() {
+        toggleModal("likes-modal");
+      }
+
+      // --- 7. ЛОКАЛИЗАЦИЯ ВРЕМЕНИ ---
+      function convertToLocalTime() {
+        document.querySelectorAll(".local-time").forEach((el) => {
+          const utcData = el.getAttribute("data-utc");
+          if (utcData) {
+            const date = new Date(utcData);
+            if (!isNaN(date.getTime())) {
+              // Превращаем UTC в местное время пользователя
+              el.textContent = date
+                .toLocaleString("ru-RU", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+                .replace(",", " •");
             }
-
-            // Текущее состояние (лайкнуто или нет)
-            const isLiked = iconSpan.textContent.includes('❤️') || iconSpan.classList.contains('text-red-500');
-            
-            // --- ОПТИМИСТИЧНОЕ ОБНОВЛЕНИЕ ИНТЕРФЕЙСА (Сразу меняем вид) ---
-            if (isLiked) {
-                // Убираем лайк
-                iconSpan.textContent = '🤍';
-                iconSpan.classList.remove('text-red-500');
-                
-                let cnt = parseInt(countSpan.textContent) || 0;
-                countSpan.textContent = Math.max(0, cnt - 1);
-            } else {
-                // Ставим лайк
-                iconSpan.textContent = '❤️';
-                iconSpan.classList.add('text-red-500');
-                
-                let cnt = parseInt(countSpan.textContent) || 0;
-                countSpan.textContent = cnt + 1;
-                
-                // Запускаем салют (только при лайке!)
-                const rect = btn.getBoundingClientRect();
-                // Вычисляем центр кнопки в процентах от экрана (для confetti)
-                const x = (rect.left + rect.width / 2) / window.innerWidth;
-                const y = (rect.top + rect.height / 2) / window.innerHeight;
-                triggerConfetti(x, y);
-            }
-
-            // --- ОТПРАВКА ЗАПРОСА НА СЕРВЕР ---
-            try {
-                const res = await fetch(`/posts/${postId}/like`, { method: 'POST' });
-                // Если не авторизован — редирект на вход
-                if (res.status === 401) window.location.href = '/login';
-            } catch (e) {
-                console.error("Ошибка лайка:", e);
-                // Тут можно добавить логику отката UI, если запрос не прошел
-            } finally {
-                // Снимаем блокировку кнопки через 300мс
-                setTimeout(() => { btn.dataset.loading = "false"; }, 300);
-            }
-        }
+          }
+        });
+      }
     </script>
-</body>
+  </body>
 </html>

@@ -8,6 +8,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select, col
 from sqlalchemy.orm import selectinload
+from datetime import datetime, timezone
 
 from app.database import get_session
 from app.models import Post, User, PostImage, Comment, PostLike
@@ -19,26 +20,32 @@ from app.utils.flash import flash, get_flashed_messages
 
 router = APIRouter()
 
-# Корректная настройка шаблонов (используем settings)
+# Инициализация шаблонов: ищем папку templates на уровень выше папки static
 templates = Jinja2Templates(directory=str(Path(settings.STATIC_PATH).parent / "templates"))
+# Добавляем функцию flash-сообщений в глобальный контекст шаблонов Jinja2
 templates.env.globals.update(get_flashed_messages=get_flashed_messages)
 
 @router.get("/")
 async def index(request: Request, user_id: int = Depends(get_current_user), session: Session = Depends(get_session)):
+    """ ГЛАВНАЯ СТРАНИЦА: Список всех постов семьи """
     if not user_id: return RedirectResponse(url="/login", status_code=303)
+    
     user = session.get(User, user_id)
     
+    # Загружаем посты с предварительной подгрузкой всех связанных данных (Eager Loading)
+    # Это предотвращает сотни мелких запросов к базе при рендеринге каждого поста
     statement = (
         select(Post)
         .options(
-            selectinload(Post.author), # type: ignore
-            selectinload(Post.images), # type: ignore
-            selectinload(Post.likers), # type: ignore
+            selectinload(Post.author),    # type: ignore
+            selectinload(Post.images),     # type: ignore
+            selectinload(Post.likers),     # type: ignore
             selectinload(Post.comments).selectinload(Comment.author) # type: ignore
         )
-        .order_by(col(Post.created_at).desc()) 
+        .order_by(col(Post.created_at).desc()) # Новые посты всегда сверху
     )
     posts = session.exec(statement).all()
+    
     return templates.TemplateResponse("index.html", {"request": request, "user": user, "posts": posts})
 
 @router.post("/posts/create")
@@ -49,47 +56,55 @@ async def create_post(
     user_id: int = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    """Создание поста с уведомлением об успехе"""
+    """ СОЗДАНИЕ ПОСТА: Обработка текста и загрузка нескольких изображений """
     if not user_id: return RedirectResponse("/login", status_code=303)
-    
     response = RedirectResponse(url="/", status_code=303)
 
     try:
+        # Получаем время ПРЯМО В МОМЕНТ создания поста
+        current_time = datetime.now(timezone.utc)
+
+        # 1. Создаем запись самого поста
         new_post = Post(
             content=content.strip() if content else None,
             author_id=user_id,
             is_gift=is_gift,
-            is_opened=not is_gift 
+            is_opened=not is_gift, # Если не "подарок", то пост сразу открыт
+            created_at=current_time
         )
         session.add(new_post)
-        session.flush()
+        session.flush()   # flush() позволяет получить ID поста, не закрывая транзакцию
         session.refresh(new_post)
 
+        # 2. Обработка изображений, если они есть
         if new_post.id:
             upload_path = Path(settings.POSTS_PATH).resolve()
             upload_path.mkdir(parents=True, exist_ok=True)
             
             for file in files:
                 if not file.filename: continue
+                
+                # Генерируем уникальное имя для файла во избежание конфликтов
                 filename = f"{uuid.uuid4().hex}.webp"
                 target_path = upload_path / filename
                 
+                # Оптимизируем и сохраняем изображение на диск
                 if process_and_save_image(cast(Any, file.file), str(target_path)):
+                    # Сохраняем путь к картинке в базе данных
                     web_path = f"/static/uploads/posts/{filename}"
                     img_entry = PostImage(url=web_path, post_id=int(new_post.id))
                     session.add(img_entry)
             
-            session.commit()
+            session.commit() # Фиксируем все изменения в базе одним махом
             flash(response, "История успешно добавлена в семейную книгу!", "success")
             log_action(str(user_id), "POST_CREATE", f"Пост {new_post.id}")
             
     except Exception as e:
+        session.rollback() # Если что-то пошло не так, отменяем все изменения в БД
         log_error("POST_CREATE_ERR", str(e))
         flash(response, "Не удалось создать пост. Попробуй еще раз.", "error")
 
     return response
-
-# --- ПРОСМОТР ПОСТА ---
 
 @router.get("/posts/{post_id}")
 async def get_post_detail(
@@ -98,10 +113,9 @@ async def get_post_detail(
     user_id: int = Depends(get_current_user), 
     session: Session = Depends(get_session)
 ):
-    if not user_id: 
-        return RedirectResponse(url="/login", status_code=303)
+    """ ДЕТАЛЬНАЯ СТРАНИЦА ПОСТА: Просмотр одного события """
+    if not user_id: return RedirectResponse(url="/login", status_code=303)
     
-    # Твой существующий statement (оставляем без изменений)
     statement = select(Post).where(Post.id == post_id).options(
         selectinload(Post.author), # type: ignore
         selectinload(Post.images), # type: ignore
@@ -114,19 +128,17 @@ async def get_post_detail(
         return RedirectResponse(url="/", status_code=303)
     
     user = session.get(User, user_id)
+    if not user: return RedirectResponse("/login", status_code=303)
     
-    # Добавляем флаг: может ли пользователь управлять этим постом?
-    # Это автор ИЛИ админ
-    can_edit = (post.author_id == user.id) or getattr(user, "is_admin", False) # type: ignore
+    # Флаг прав доступа: редактировать/удалять может автор ИЛИ админ
+    can_edit = (post.author_id == user.id) or (user.role == "admin")
 
     return templates.TemplateResponse("post_detail.html", {
         "request": request, 
         "user": user, 
         "post": post,
-        "can_edit": can_edit  # Передаем этот флаг в HTML
+        "can_edit": can_edit 
     })
-
-# --- ДОБАВЛЕНИЕ КОММЕНТАРИЯ ---
 
 @router.post("/posts/{post_id}/comment")
 async def create_comment(
@@ -135,7 +147,7 @@ async def create_comment(
     user_id: int = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    """Добавление комментария с уведомлением"""
+    """ КОММЕНТИРОВАНИЕ: Добавление мнения под пост """
     response = RedirectResponse(url=f"/posts/{post_id}", status_code=303)
     
     if not content.strip():
@@ -146,17 +158,17 @@ async def create_comment(
         new_comment = Comment(
             content=content.strip(),
             post_id=post_id,
-            author_id=user_id
+            author_id=user_id,
+            created_at=datetime.now(timezone.utc)
         )
         session.add(new_comment)
         session.commit()
         flash(response, "Комментарий добавлен", "success")
     except Exception as e:
+        log_error("COMMENT_ERR", str(e))
         flash(response, "Ошибка при добавлении комментария", "error")
 
     return response
-
-# --- ЛАЙК (AJAX или редирект) ---
 
 @router.post("/posts/{post_id}/like")
 async def toggle_like(
@@ -164,22 +176,44 @@ async def toggle_like(
     user_id: int = Depends(get_current_user), 
     session: Session = Depends(get_session)
 ):
-    """Поставить или убрать лайк"""
+    """ ЛАЙК: Переключатель (поставил/убрал) """
     if not user_id: return RedirectResponse("/login", status_code=303)
     
-    # Ищем, лайкал ли уже этот юзер этот пост
+    # Проверяем наличие существующего лайка от этого пользователя
     existing = session.exec(
         select(PostLike).where(PostLike.user_id == user_id, PostLike.post_id == post_id)
     ).first()
     
     if existing:
+        # Если лайк уже есть — удаляем его (дизлайк)
         session.delete(existing)
     else:
+        # Если лайка нет — создаем новую запись
         session.add(PostLike(user_id=user_id, post_id=post_id))
         
     session.commit()
-    # Возвращаемся на ту же страницу, откуда пришли
     return RedirectResponse(url=f"/posts/{post_id}", status_code=303)
+
+@router.get("/api/posts/{post_id}/likers")
+async def get_post_likers_api(
+    post_id: int, 
+    session: Session = Depends(get_session)
+):
+    """Отдает список лайкнувших в формате JSON для модального окна"""
+    statement = select(Post).where(Post.id == post_id).options(selectinload(Post.likers)) # type: ignore
+    post = session.exec(statement).first()
+    
+    if not post:
+        return []
+    
+    # Возвращаем только нужные поля, чтобы не светить паролями или email
+    return [
+        {
+            "display_name": user.display_name,
+            "avatar_url": user.avatar_url or "/static/default_avatar.png"
+        } 
+        for user in post.likers
+    ]
 
 @router.post("/posts/delete/{post_id}")
 async def delete_post(
@@ -187,40 +221,38 @@ async def delete_post(
     user_id: int = Depends(get_current_user), 
     session: Session = Depends(get_session)
 ):
-    """Удаление поста и очистка .webp файлов с уведомлением"""
+    """ УДАЛЕНИЕ ПОСТА: Очистка диска от картинок и удаление из БД """
     statement = select(Post).where(Post.id == post_id).options(selectinload(Post.images)) # type: ignore
     post = session.exec(statement).first()
     user = session.get(User, user_id)
     
-    # Готовим ответ заранее, чтобы передать его во flash
     response = RedirectResponse("/", status_code=303)
 
-    if not post:
+    if not post or not user:
         flash(response, "Пост уже удален или не существует", "error")
         return response
 
-    if post.author_id != user_id and getattr(user, "role", "") != "admin":
+    # Проверка прав (только автор или админ могут стирать истории)
+    if post.author_id != user_id and user.role != "admin":
         flash(response, "У тебя нет прав для удаления этого поста!", "error")
         return response
 
-    # 1. Удаление файлов
+    # 1. Сначала физически удаляем файлы с сервера, чтобы не копить мусор
     for img in post.images:
         filename = os.path.basename(img.url)
-        file_path = Path(settings.POSTS_PATH) / filename
+        file_path = Path(settings.POSTS_PATH).resolve() / filename
         if file_path.exists():
-            os.remove(file_path)
-            print(f"--- 🗑️ Удален файл: {file_path} ---")
+            try:
+                os.remove(file_path)
+                print(f"--- 🗑️ Удален файл: {file_path} ---")
+            except Exception as e:
+                log_error("FILE_DEL_ERR", f"Не удалось удалить {filename}: {e}")
 
-    # 2. Удаление из БД
-    for img in post.images:
-        session.delete(img)
-    
+    # 2. Удаляем запись из базы (все связанные лайки и картинки удалятся по цепочке)
     session.delete(post)
     session.commit()
     
     log_action(str(user_id), "POST_DELETE", f"Пост {post_id} стерт")
-    
-    # 3. Добавляем уведомление об успехе
-    flash(response, "Пост и все связанные фотографии успешно удалены", "success")
+    flash(response, "Пост и все фотографии успешно удалены", "success")
     
     return response

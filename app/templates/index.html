@@ -19,5 +19,6 @@
 {% endblock %}
 
 {% block modals %}
+    {{ super() }} {# Это подтянет модалку лайков из base.html #}
     {% include 'includes/create_post_madal.html' %}
 {% endblock %}
