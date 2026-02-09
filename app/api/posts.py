@@ -62,7 +62,7 @@ async def create_post(
             is_opened=not is_gift 
         )
         session.add(new_post)
-        session.commit()
+        session.flush()
         session.refresh(new_post)
 
         if new_post.id:
@@ -98,34 +98,32 @@ async def get_post_detail(
     user_id: int = Depends(get_current_user), 
     session: Session = Depends(get_session)
 ):
-    """Страница отдельного поста с комментариями"""
     if not user_id: 
         return RedirectResponse(url="/login", status_code=303)
     
-    # Загружаем пост со всеми связями через selectinload
-    statement = (
-        select(Post)
-        .where(Post.id == post_id)
-        .options(
-            selectinload(Post.author), # type: ignore
-            selectinload(Post.images), # type: ignore
-            selectinload(Post.comments).selectinload(Comment.author), # type: ignore
-            selectinload(Post.likers) # type: ignore
-        )
+    # Твой существующий statement (оставляем без изменений)
+    statement = select(Post).where(Post.id == post_id).options(
+        selectinload(Post.author), # type: ignore
+        selectinload(Post.images), # type: ignore
+        selectinload(Post.comments).selectinload(Comment.author), # type: ignore
+        selectinload(Post.likers) # type: ignore
     )
     post = session.exec(statement).first()
     
     if not post:
-        print(f"⚠️ ПОСТ {post_id} НЕ НАЙДЕН")
         return RedirectResponse(url="/", status_code=303)
     
     user = session.get(User, user_id)
     
-    # Убедись, что файл post_detail.html существует в templates/
+    # Добавляем флаг: может ли пользователь управлять этим постом?
+    # Это автор ИЛИ админ
+    can_edit = (post.author_id == user.id) or getattr(user, "is_admin", False) # type: ignore
+
     return templates.TemplateResponse("post_detail.html", {
         "request": request, 
         "user": user, 
-        "post": post
+        "post": post,
+        "can_edit": can_edit  # Передаем этот флаг в HTML
     })
 
 # --- ДОБАВЛЕНИЕ КОММЕНТАРИЯ ---
@@ -192,6 +190,7 @@ async def delete_post(
     """Удаление поста и очистка .webp файлов с уведомлением"""
     statement = select(Post).where(Post.id == post_id).options(selectinload(Post.images)) # type: ignore
     post = session.exec(statement).first()
+    user = session.get(User, user_id)
     
     # Готовим ответ заранее, чтобы передать его во flash
     response = RedirectResponse("/", status_code=303)
@@ -200,7 +199,7 @@ async def delete_post(
         flash(response, "Пост уже удален или не существует", "error")
         return response
 
-    if post.author_id != user_id:
+    if post.author_id != user_id and getattr(user, "role", "") != "admin":
         flash(response, "У тебя нет прав для удаления этого поста!", "error")
         return response
 

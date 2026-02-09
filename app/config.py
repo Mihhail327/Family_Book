@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     
     # Безопасность
     SECRET_KEY: str = "super_secret_key_change_me"
+    ADMIN_PASSWORD: str = "fallback_if_env_missing"
+    DEFAULT_USER_PASSWORD: str = "1234"
     
     # База данных (кладем файл в корень проекта)
     DATABASE_URL: str = f"sqlite:///{ROOT_DIR}/family_book.db"
@@ -49,7 +51,7 @@ class Settings(BaseSettings):
     
     # Ограничения
     MAX_UPLOAD_SIZE: int = 20 * 1024 * 1024  # 20 MB
-    ALLOWED_EXTENSIONS: set = {"png", "jpg", "jpeg", "gif", "webp"}
+    ALLOWED_EXTENSIONS: set[str] = {"png", "jpg", "jpeg", "gif", "webp"}
 
     @property
     def is_production(self) -> bool:

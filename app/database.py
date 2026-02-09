@@ -1,3 +1,4 @@
+from typing import Generator
 from sqlmodel import SQLModel, create_engine, Session, select
 from sqlalchemy import event 
 from sqlalchemy.engine import Engine 
@@ -17,8 +18,9 @@ if is_sqlite:
     )
     
     # Включаем PRAGMA только для SQLite
+    # Переименовали connection_record в _, чтобы линтер не ругался
     @event.listens_for(Engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, connection_record):
+    def set_sqlite_pragma(dbapi_connection, _):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
@@ -36,38 +38,44 @@ def create_db_and_tables():
 
     with Session(engine) as session:
         try:
-            # 1. Обновляем системного админа (ID 1) на всякий случай
+            secure_pwd = hash_password(settings.ADMIN_PASSWORD)
+        
+            # --- 1. Системный админ (всегда под рукой) ---
             admin_user = session.exec(select(User).where(User.username == "admin")).first()
             if admin_user:
-                admin_user.hashed_password = hash_password("kP9$vR2_nZ7!mX")
+                admin_user.hashed_password = secure_pwd
                 admin_user.display_name = "Михаил (Система)" 
                 session.add(admin_user)
-            
-            # 2. ПРИСВАИВАЕМ ПРАВА АДМИНА ТВОЕМУ ТЕКУЩЕМУ АККАУНТУ (ID 2)
-            user_2 = session.get(User, 2)
-            if user_2:
-                user_2.role = "admin"
-                user_2.display_name = "Михаил"
-                session.add(user_2)
-                log_action("SYSTEM", "DB_UPDATE", "Аккаунту ID 2 выданы права админа")
             else:
-                # Если вдруг ID 2 еще нет, создаем дефолтного админа
-                if not admin_user:
-                    new_admin = User(
-                        username="admin",
-                        display_name="Михаил",
-                        hashed_password=hash_password("kP9$vR2_nZ7!mX"),
-                        role="admin",
-                        avatar_url="/static/default_avatar.png"
-                    )
-                    session.add(new_admin)
+                # Создаем системного админа, если база пустая
+                session.add(User(
+                    username="admin",
+                    display_name="Михаил (Система)",
+                    hashed_password=secure_pwd,
+                    role="admin",
+                    avatar_url="/static/default_avatar.png"
+                ))
+
+            # --- 2. Поиск твоего личного аккаунта (по нику) ---
+            target_username = "Михаил" # Убедись, что в базе ты записан именно так!
+            me = session.exec(select(User).where(User.username == target_username)).first()
+            
+            if me:
+                me.role = "admin"
+                session.add(me)
+                log_action("SYSTEM", "DB_UPDATE", f"Права админа выданы пользователю {me.username}")
+            else:
+                # Полезно видеть, если аккаунт еще не найден
+                print(f"--- INFO: Пользователь '{target_username}' пока не найден. Права не выданы. ---")
 
             session.commit()
+            print("--- ✅ База данных успешно инициализирована ---")
+            
         except Exception as e:
             session.rollback()
-            log_error("DB_INIT", f"Ошибка при настройке прав: {e}")
+            log_error("DB_INIT", f"Ошибка настройки прав: {e}")
 
-def get_session():
+def get_session() -> Generator[Session, None, None]:
     """Генератор сессий для FastAPI (Dependency Injection)."""
     with Session(engine) as session:
         yield session
