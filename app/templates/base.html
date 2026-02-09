@@ -333,11 +333,15 @@
       // --- 7. ЛОКАЛИЗАЦИЯ ВРЕМЕНИ ---
       function convertToLocalTime() {
         document.querySelectorAll(".local-time").forEach((el) => {
-          const utcData = el.getAttribute("data-utc");
+          let utcData = el.getAttribute("data-utc");
           if (utcData) {
+            // Если строка не заканчивается на Z и не содержит + (смещение), добавляем Z
+            if (!utcData.endsWith("Z") && !utcData.includes("+")) {
+              utcData += "Z";
+            }
+
             const date = new Date(utcData);
             if (!isNaN(date.getTime())) {
-              // Превращаем UTC в местное время пользователя
               el.textContent = date
                 .toLocaleString("ru-RU", {
                   day: "2-digit",
@@ -351,6 +355,9 @@
           }
         });
       }
+
+      document.addEventListener("DOMContentLoaded", convertToLocalTime);
+      convertToLocalTime();
     </script>
   </body>
 </html>
