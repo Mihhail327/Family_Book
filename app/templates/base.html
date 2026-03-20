@@ -1,363 +1,150 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}FamilyBook{% endblock %}</title>
-
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#2563eb" />
-    <link rel="apple-touch-icon" href="/static/icons/icon-192.png" />
-
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <script
-      defer
-      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
-    ></script>
-    <script
-      defer
-      src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"
-    ></script>
-
     <script>
-      tailwind.config = { darkMode: "class" };
+        // Настройка Tailwind (опционально, для кастомных цветов)
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: '#d4af37', // Золотой акцент
+                    }
+                }
+            }
+        }
     </script>
+    
+    <link rel="manifest" href="/manifest.json">
 
     <style>
-      /* Убираем синюю подсветку при нажатии на мобильных */
-      body {
-        -webkit-tap-highlight-color: transparent;
-      }
-      /* Скрываем элементы Alpine до загрузки скрипта */
-      [x-cloak] {
-        display: none !important;
-      }
+        /* Скрытие элементов до загрузки Alpine.js */
+        [x-cloak] { display: none !important; }
+        
+        /* Анимация прогресс-бара уведомлений */
+        @keyframes progress {
+            from { width: 100%; }
+            to { width: 0%; }
+        }
+        .animate-progress {
+            animation: progress 4s linear forwards;
+        }
+
+        /* --- АДАПТИВНЫЙ ФОН FAMILYBOOK --- */
+        /* --- АДАПТИВНЫЙ ФОН --- */
+body {
+    /* ПК - Светлый */
+    background-image: url("{{ url_for('static', path='images/backgrounds/bg-pc.jpg') }}");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    transition: background-image 0.5s ease;
+}
+
+/* ПК - Темный (срабатывает, если на body есть класс dark) */
+body.dark {
+    background-image: url("{{ url_for('static', path='images/backgrounds/bg-pc-dark.jpg') }}");
+}
+
+/* Мобильные устройства */
+@media (max-width: 768px) {
+    body {
+        /* Мобилка - Светлый */
+        background-image: url("{{ url_for('static', path='images/backgrounds/bg-mobile.jpg') }}");
+    }
+    body.dark {
+        /* Мобилка - Темный */
+        background-image: url("{{ url_for('static', path='images/backgrounds/bg-mobile-dark.jpg') }}");
+    }
+}
     </style>
-  </head>
+</head>
 
-  <body
-    class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-300"
+<body 
     x-data="{ 
-          darkMode: localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches),
-          toggleTheme() {
-              this.darkMode = !this.darkMode;
-              localStorage.setItem('theme', this.darkMode ? 'dark' : 'light');
-              if (this.darkMode) document.documentElement.classList.add('dark');
-              else document.documentElement.classList.remove('dark');
-          }
-      }"
-    :class="{ 'dark': darkMode }"
-    x-init="$watch('darkMode', val => val ? document.documentElement.classList.add('dark') : document.documentElement.classList.remove('dark')); 
-              if(darkMode) document.documentElement.classList.add('dark');"
-  >
-    {% include 'includes/navbar.html' %}
+        darkMode: localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    }" 
+    x-init="$watch('darkMode', val => localStorage.setItem('theme', val ? 'dark' : 'light'))" 
+    :class="darkMode ? 'dark text-white' : 'text-slate-900'" 
+    class="min-h-screen transition-colors duration-300"
+>
 
-    <main class="min-h-screen pb-24">{% block content %}{% endblock %}</main>
-
-    {% block modals %}
-    <div
-      id="likes-modal"
-      class="fixed inset-0 z-[100] hidden bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 opacity-0 items-center justify-center p-4"
-      onclick="if (event.target === this) closeLikesModal();"
-    >
-      <div
-        id="modalContent"
-        class="bg-white dark:bg-slate-900 w-full max-w-xs rounded-3xl shadow-2xl transform transition-transform duration-300 translate-y-full overflow-hidden border border-slate-200 dark:border-slate-800"
-      >
+    {% set messages = get_flashed_messages(request) %}
+    {% if messages %}
+    <div class="fixed top-6 left-1/2 -translate-x-1/2 z-[150] w-[95%] max-w-md px-4 flex flex-col gap-3 pointer-events-none" x-cloak>
+        {% for msg in messages %}
         <div
-          class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50"
+            x-data="{ show: true }"
+            x-show="show"
+            x-init="
+                setTimeout(() => show = false, 4000);
+                try {
+                    document.getElementById('notificationSound').play().catch(e => console.log('Звук заблокирован'));
+                    if ('vibrate' in navigator) navigator.vibrate(20);
+                } catch(e) {}
+            "
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 transform -translate-y-4 scale-95"
+            x-transition:enter-end="opacity-100 transform translate-y-0 scale-100"
+            x-transition:leave="transition ease-in duration-300"
+            x-transition:leave-start="opacity-100 transform translate-y-0 scale-100"
+            x-transition:leave-end="opacity-0 transform -translate-y-4 scale-95"
+            class="glass-card overflow-hidden rounded-2xl shadow-2xl border-l-4 pointer-events-auto
+                {% if msg.category == 'success' %} border-emerald-500 bg-emerald-500/10 text-emerald-100
+                {% elif msg.category == 'error' %} border-rose-500 bg-rose-500/10 text-rose-100
+                {% else %} border-blue-500 bg-blue-500/10 text-blue-100 {% endif %}"
         >
-          <h3
-            class="font-bold text-slate-800 dark:text-white flex items-center gap-2 text-sm uppercase tracking-wider"
-          >
-            ❤️ Оценили
-          </h3>
-          <button
-            onclick="closeLikesModal()"
-            class="text-slate-400 hover:text-slate-600 p-2 no-tap"
-          >
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              ></path>
-            </svg>
-          </button>
+            <div class="flex items-center p-4">
+                <div class="flex-shrink-0 mr-3 text-2xl drop-shadow-md">
+                    {% if msg.category == 'success' %}✨
+                    {% elif msg.category == 'error' %}⚠️
+                    {% else %}ℹ️{% endif %}
+                </div>
+                <div class="flex-1 font-medium text-sm sm:text-base tracking-wide">
+                    {{ msg.message }}
+                </div>
+                <button @click="show = false" class="ml-4 p-2 hover:bg-white/10 rounded-full transition-colors opacity-60 hover:opacity-100 haptic-btn">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="h-1 bg-white/10 w-full overflow-hidden">
+                <div class="h-full bg-current opacity-40 animate-progress shadow-[0_0_10px_currentColor]"></div>
+            </div>
         </div>
-
-        <div
-          id="likes-modal-content"
-          class="max-h-80 overflow-y-auto p-3 space-y-1 bg-white dark:bg-slate-900 /* Ширина скроллбара */ [&::-webkit-scrollbar]:w-1.5 /* Цвет дорожки */ [&::-webkit-scrollbar-track]:bg-transparent /* Цвет ползунка (светлая тема) */ [&::-webkit-scrollbar-thumb]:bg-slate-200 /* Цвет ползунка (темная тема) */ dark:[&::-webkit-scrollbar-thumb]:bg-slate-800 /* Закругление */ [&::-webkit-scrollbar-thumb]:rounded-full /* Эффект при наведении */ hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-700"
-        ></div>
-      </div>
-    </div>
-    {% endblock %}
-
-    <audio
-      id="notificationSound"
-      src="/static/sounds/notification.mp3"
-      preload="auto"
-    ></audio>
-
-    {% set flash = get_flashed_messages(request) %} {% if flash %}
-    <div
-      x-data="{ show: true }"
-      x-show="show"
-      x-init="
-            setTimeout(() => show = false, 4000);
-            document.getElementById('notificationSound').play().catch(e => console.log('Звук заблокирован'));
-         "
-      x-transition:enter="transition ease-out duration-300"
-      x-transition:enter-start="opacity-0 transform translate-y-[-20px]"
-      x-transition:enter-end="opacity-100 transform translate-y-0"
-      x-transition:leave="transition ease-in duration-300"
-      x-transition:leave-start="opacity-100 transform translate-y-0"
-      x-transition:leave-end="opacity-0 transform translate-y-[-20px]"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md"
-      x-cloak
-    >
-      <div
-        class="flex items-center p-4 rounded-2xl shadow-2xl border backdrop-blur-md {% if flash.category == 'success' %} bg-emerald-500/90 border-emerald-400 text-white {% elif flash.category == 'error' %} bg-rose-500/90 border-rose-400 text-white {% else %} bg-blue-500/90 border-blue-400 text-white {% endif %}"
-      >
-        <div class="mr-3 text-2xl">
-          {% if flash.category == 'success' %} ✅ {% elif flash.category ==
-          'error' %} ⚠️ {% else %} ℹ️ {% endif %}
-        </div>
-
-        <div class="flex-1 font-medium">{{ flash.message }}</div>
-
-        <button
-          @click="show = false"
-          class="ml-4 opacity-70 hover:opacity-100 transition-opacity"
-        >
-          <svg
-            class="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            ></path>
-          </svg>
-        </button>
-      </div>
+        {% endfor %}
     </div>
     {% endif %}
 
-    <script>
-      // --- 1. PWA Service Worker ---
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker
-            .register("/sw.js")
-            .catch((err) => console.error("PWA Error", err));
-        });
-      }
+    <div class="min-h-screen flex flex-col md:flex-row">
 
-      // --- 2. УПРАВЛЕНИЕ МОДАЛКАМИ (С АНИМАЦИЕЙ) ---
-      function toggleModal(modalId) {
-        const modal = document.getElementById(modalId);
-        if (!modal) {
-          console.error("Модальное окно не найдено:", modalId);
-          return;
-        }
+    {% include 'includes/sidebar.html' %}
 
-        if (modal.classList.contains("hidden")) {
-          modal.classList.remove("hidden");
-          setTimeout(() => {
-            modal.classList.add("opacity-100");
-            modal.classList.remove("opacity-0");
-            const content = modal.querySelector("#modalContent");
-            if (content) content.classList.remove("translate-y-full");
-          }, 10);
-          document.body.style.overflow = "hidden";
-        } else {
-          modal.classList.remove("opacity-100");
-          modal.classList.add("opacity-0");
-          const content = modal.querySelector("#modalContent");
-          if (content) content.classList.add("translate-y-full");
+    <main class="flex-1 w-full max-w-3xl mx-auto pb-20 md:pb-8 pt-20 md:pt-8 px-4 lg:px-8">
+        {% block content %}{% endblock %}
+    </main>
 
-          setTimeout(() => {
-            modal.classList.add("hidden");
-            document.body.style.overflow = "";
-          }, 300);
-        }
-      }
+    <aside class="hidden lg:block w-80 p-4">
+        </aside>
 
-      // --- 3. ПРЕВЬЮ ФОТО ---
-      function handlePreview(event) {
-        const area = document.getElementById("preview-area");
-        if (!area) return;
-        area.innerHTML = "";
+</div>
+</div>
 
-        Array.from(event.target.files).forEach((file) => {
-          const url = URL.createObjectURL(file);
-          const img = document.createElement("img");
-          img.src = url;
-          img.className =
-            "w-24 h-24 object-cover rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm";
-          area.appendChild(img);
-        });
-      }
+    {% block modals %}{% endblock %}
 
-      // --- 4. ФУНКЦИЯ САЛЮТА ---
-      function triggerConfetti(x, y) {
-        if (typeof confetti !== "function") return;
-        const heart = confetti.shapeFromText({ text: "❤️", scalar: 2 });
+    <audio id="notificationSound" src="{{ url_for('static', path='sounds/notification.mp3') }}" preload="auto"></audio>
 
-        confetti({
-          particleCount: 40,
-          spread: 80,
-          origin: { x: x, y: y },
-          shapes: [heart],
-          colors: ["#ef4444", "#ec4899", "#f472b6"],
-          scalar: 1.2,
-          gravity: 0.7,
-          ticks: 100,
-          zIndex: 10000,
-          disableForced3d: true,
-        });
-      }
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="{{ url_for('static', path='app.js') }}"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
-      // --- 5. ЛАЙКИ (AJAX + Анимация) ---
-      async function toggleLike(btn, postId) {
-        if (btn.dataset.loading === "true") return;
-        btn.dataset.loading = "true";
-
-        const iconSpan = btn.querySelector(".heart-icon");
-        const countSpan = btn.querySelector(".count");
-
-        if (!iconSpan || !countSpan) {
-          btn.dataset.loading = "false";
-          return;
-        }
-
-        const isLiked =
-          iconSpan.textContent.includes("❤️") ||
-          iconSpan.classList.contains("text-red-500");
-
-        if (isLiked) {
-          iconSpan.textContent = "🤍";
-          iconSpan.classList.remove("text-red-500");
-          let cnt = parseInt(countSpan.textContent) || 0;
-          countSpan.textContent = Math.max(0, cnt - 1);
-        } else {
-          iconSpan.textContent = "❤️";
-          iconSpan.classList.add("text-red-500");
-          let cnt = parseInt(countSpan.textContent) || 0;
-          countSpan.textContent = cnt + 1;
-
-          const rect = btn.getBoundingClientRect();
-          const x = (rect.left + rect.width / 2) / window.innerWidth;
-          const y = (rect.top + rect.height / 2) / window.innerHeight;
-          triggerConfetti(x, y);
-        }
-
-        try {
-          const res = await fetch(`/posts/${postId}/like`, { method: "POST" });
-          if (res.status === 401) window.location.href = "/login";
-        } catch (e) {
-          console.error("Ошибка лайка:", e);
-        } finally {
-          setTimeout(() => {
-            btn.dataset.loading = "false";
-          }, 300);
-        }
-      }
-
-      // --- 6. МОДАЛКА ЛАЙКОВ ---
-      async function openLikesModal(postId) {
-        const modal = document.getElementById("likes-modal");
-        const content = document.getElementById("likes-modal-content");
-
-        if (!modal || !content) return;
-
-        content.innerHTML = `
-                <div class="flex justify-center py-10">
-                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-            `;
-
-        toggleModal("likes-modal");
-
-        try {
-          const response = await fetch(`/api/posts/${postId}/likers`);
-          if (!response.ok) throw new Error();
-
-          const users = await response.json();
-
-          if (users.length === 0) {
-            content.innerHTML =
-              '<p class="text-center text-slate-400 py-4">Пока никто не оценил</p>';
-            return;
-          }
-
-          content.innerHTML = users
-            .map(
-              (u) => `
-                    <div class="flex items-center space-x-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors group">
-                        <img src="${u.avatar_url || "/static/default_avatar.png"}" 
-                             class="w-10 h-10 rounded-full object-cover border border-slate-100 dark:border-slate-700 shadow-sm"
-                             onerror="this.src='/static/default_avatar.png'">
-                        <span class="font-bold text-sm text-slate-700 dark:text-slate-200 group-hover:text-blue-600 transition-colors">
-                            ${u.display_name}
-                        </span>
-                    </div>
-                `,
-            )
-            .join("");
-        } catch (e) {
-          content.innerHTML =
-            '<p class="text-center text-rose-500 py-4 text-sm">Не удалось загрузить список</p>';
-        }
-      }
-
-      function closeLikesModal() {
-        toggleModal("likes-modal");
-      }
-
-      // --- 7. ЛОКАЛИЗАЦИЯ ВРЕМЕНИ ---
-      function convertToLocalTime() {
-        document.querySelectorAll(".local-time").forEach((el) => {
-          let utcData = el.getAttribute("data-utc");
-          if (utcData) {
-            // Если строка не заканчивается на Z и не содержит + (смещение), добавляем Z
-            if (!utcData.endsWith("Z") && !utcData.includes("+")) {
-              utcData += "Z";
-            }
-
-            const date = new Date(utcData);
-            if (!isNaN(date.getTime())) {
-              el.textContent = date
-                .toLocaleString("ru-RU", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-                .replace(",", " •");
-            }
-          }
-        });
-      }
-
-      document.addEventListener("DOMContentLoaded", convertToLocalTime);
-      convertToLocalTime();
-    </script>
-  </body>
+</body>
 </html>

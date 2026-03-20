@@ -1,0 +1,147 @@
+<meta charset="UTF-8" />
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+/>
+<title>{% block title %}FamilyBook{% endblock %}</title>
+
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#2563eb" />
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script
+  defer
+  src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+></script>
+<script
+  defer
+  src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"
+></script>
+
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        backdropBlur: {
+          'glass': '12px',
+        },
+        colors: {
+          'glass-white': 'rgba(255, 255, 255, 0.05)',
+        }
+      }
+    }
+  };
+</script>
+
+<style>
+  :root {
+    --bg-url: url('/static/images/backgrounds/bg-pc.jpg');
+  }
+  /* Темная тема через Tailwind class="dark" */
+  .dark {
+    --bg-url: url('/static/images/backgrounds/bg-pc-dark.jpg');
+  }
+
+  /* Мобильные версии для вертикальных экранов */
+  @media (max-width: 768px) {
+    :root {
+      --bg-url: url('/static/images/backgrounds/bg-mobile.jpg');
+    }
+    .dark {
+      --bg-url: url('/static/images/backgrounds/bg-mobile-dark.jpg');
+    }
+  }
+  /* Убираем синюю подсветку при нажатии на мобильных */
+  body {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Скрываем элементы Alpine до загрузки скрипта (предотвращает мерцание UI) */
+  [x-cloak] {
+    display: none !important;
+  }
+
+  /* Наш фирменный класс для стеклянных карточек */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px); /* Было 16px */
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+  /* Плавный скроллбарт для темной темы */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+  }
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  /* Эффект дыхания для фона */
+@keyframes breathe {
+    0%, 100% { opacity: 0.15; transform: scale(1); }
+    50% { opacity: 0.25; transform: scale(1.05); }
+}
+
+/* Оставляем твои "золотые нити" как живой эффект поверх статики */
+  .gold-glow-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), 
+                rgba(253, 224, 71, 0.05) 0%, 
+                transparent 50%);
+    pointer-events: none;
+  }
+
+.bg-breathing::after {
+    content: "";
+    position: absolute;
+    width: 200%;
+    height: 200%;
+    top: -50%;
+    left: -50%;
+    background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 10L90 90' stroke='%23fde047' stroke-width='0.1' fill='none'/%3E%3C/svg%3E");
+    animation: breathe 10s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes glow-pulse {
+    0%, 100% { opacity: 0.3; filter: blur(40px); }
+    50% { opacity: 0.6; filter: blur(60px); }
+}
+
+/* Главный слой фона */
+  .bg-premium-main {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -2;
+    background-image: var(--bg-url);
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    transition: background-image 0.8s ease-in-out; /* Мягкая смена темы */
+  }
+
+.gold-thread {
+    position: fixed;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(253, 224, 71, 0.1) 0%, transparent 70%);
+    animation: glow-pulse 8s ease-in-out infinite;
+    z-index: -1;
+}
+</style>

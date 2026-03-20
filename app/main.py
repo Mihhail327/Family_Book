@@ -1,72 +1,47 @@
 import os
-import sys
-from pathlib import Path
-from typing import Optional
-
-from fastapi import FastAPI, Request, Depends, status, Response
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse, FileResponse
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.templating import Jinja2Templates
 from contextlib import asynccontextmanager
-from sqlmodel import Session, select, col
-from sqlalchemy.orm import selectinload
-from app.utils.flash import get_flashed_messages
 
-# Подгружаем настройки ПЕРВЫМИ
-from app.config import settings
+from fastapi import FastAPI, APIRouter, Request, Depends, Response
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
+from sqlmodel import Session
 
-# Находим корень проекта для sys.path
-APP_DIR = Path(__file__).resolve().parent
-if str(APP_DIR.parent) not in sys.path:
-    sys.path.append(str(APP_DIR.parent))
-
-from app.database import create_db_and_tables, get_session 
+from app.config import STATIC_DIR, settings
+from app.database import create_db_and_tables, engine
 from app.api import auth, posts
-from app.api.auth import get_current_user 
-from app.models import User, Post, Comment
 from app.logger import log_action, log_error
+from app.services.cleanup import cleanup_expired_guests 
+from app.routers import admin
+from app.core.templates import templates
+from app.security import get_current_user
 
-# Используем путь к шаблонам строго через конфиг
-templates = Jinja2Templates(directory=str(Path(settings.STATIC_PATH).parent / "templates"))
+print(f"🔍 Ищу файл тут: {os.path.join(str(STATIC_DIR), 'app.js')}")
+print(f"❓ Файл реально существует? {os.path.exists(os.path.join(str(STATIC_DIR), 'app.js'))}")
 
-# РЕГИСТРИРУЕМ FLASH-УВЕДОМЛЕНИЯ
-# Это позволит вызывать get_flashed_messages(request) прямо внутри любого HTML-файла
-templates.env.globals.update(get_flashed_messages=get_flashed_messages)
+router = APIRouter()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Управление жизненным циклом приложения"""
+    """Управление жизненным циклом приложения v2.0"""
     try:
-        # Берем ПУТЬ СТРОГО ИЗ SETTINGS
-        static_path = Path(settings.STATIC_PATH)
-        uploads_posts = Path(settings.POSTS_PATH)
-        
-        print(f"\n--- 🛠 ФИНАЛЬНАЯ ДИАГНОСТИКА ---")
-        print(f"Статика (settings): {static_path}")
-        print(f"Папка существует?: {static_path.exists()}")
-        
-        # Проверка пельмешки
-        pelmen = static_path / "default_avatar.png"
-        print(f"✅ ПЕЛЬМЕШКА: {'Найдена' if pelmen.exists() else '❌ НЕТ ФАЙЛА'}")
-        
-        # Проверка постов
-        print(f"📁 Ищу посты в: {uploads_posts}")
-        if uploads_posts.exists():
-            count = len(list(uploads_posts.glob("*")))
-            print(f"✅ ПАПКА POSTS: OK (Файлов: {count})")
-        else:
-            print(f"❌ ПАПКА POSTS: НЕ НАЙДЕНА!")
-        print(f"-------------------------------\n")
-            
+        print(f"\n--- 🛠 СТАРТ FAMILY_BOOK {settings.VERSION} ---")
         create_db_and_tables()
-        log_action("SYSTEM", "STARTUP", "Сервер запущен")
+        
+        # Запускаем метлу при старте сервера
+        with Session(engine) as session:
+            deleted_count = cleanup_expired_guests(session)
+            if deleted_count > 0:
+                print(f"🧹 Очистка: Удалено {deleted_count} просроченных гостей")
+        
+        log_action("SYSTEM", "STARTUP", f"Сервер запущен v{settings.VERSION}")
     except Exception as e:
         log_error("STARTUP", str(e))
     yield
 
-app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
+app = FastAPI(title=settings.PROJECT_NAME, version=settings.VERSION, lifespan=lifespan)
 
+# Middlewares
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -75,60 +50,59 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- МОНТИРОВАНИЕ СТАТИКИ (ЕДИНАЯ ТОЧКА) ---
-
-# Монтируем строго ту папку, в которую пишут роутеры
-if Path(settings.STATIC_PATH).exists():
-    app.mount("/static", StaticFiles(directory=settings.STATIC_PATH), name="static")
+# Монтируем статику
+if not STATIC_DIR.exists():
+    print(f"❌ КРИТИЧЕСКАЯ ОШИБКА: Папка статики не найдена по пути {STATIC_DIR}")
 else:
-    print(f"⚠️ КРИТИЧЕСКАЯ ОШИБКА: Директория {settings.STATIC_PATH} не найдена!")
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+    print(f"✅ Статика подключена: {STATIC_DIR}")
 
-# Роуты для PWA (тоже через settings)
+# Подключаем доменные роутеры (главная страница '/' теперь обрабатывается внутри posts.router)
+app.include_router(auth.router, prefix="/auth", tags=["Auth"])
+app.include_router(posts.router, tags=["Posts"])
+app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+app.include_router(router)
+
+# PWA магия (Service Worker и Manifest)
 @app.get("/sw.js", include_in_schema=False)
 async def serve_sw(): 
-    return FileResponse(Path(settings.STATIC_PATH) / "sw.js")
-
-@app.get("/manifest.json", include_in_schema=False)
-async def serve_manifest(): 
-    return FileResponse(Path(settings.STATIC_PATH) / "manifest.json")
-
-# --- РОУТЕРЫ ---
-app.include_router(auth.router, tags=["Auth"])
-app.include_router(posts.router, tags=["Posts"])
-
-@app.get("/")
-async def index(request: Request, db: Session = Depends(get_session)):
-    user_id = get_current_user(request)
-    if not user_id: return RedirectResponse("/login", status_code=303)
-    user = db.get(User, user_id)
-    if not user: return RedirectResponse("/login", status_code=303)
-
-    try:
-        statement = (
-            select(Post)
-            .options(
-                selectinload(Post.author), # type: ignore
-                selectinload(Post.images), # type: ignore
-                selectinload(Post.comments).selectinload(Comment.author) # type: ignore
-            )
-            .order_by(col(Post.created_at).desc())
-        )
-        posts_list = db.exec(statement).all() 
-        return templates.TemplateResponse("index.html", {"request": request, "posts": posts_list, "user": user})
-    except Exception as e:
-        log_error("INDEX_PAGE", str(e))
-        return templates.TemplateResponse("index.html", {"request": request, "posts": [], "user": user})
-
-@app.exception_handler(404)
-async def custom_404_handler(request: Request, __):
-    if request.url.path.startswith("/static"):
+    file_path = STATIC_DIR / "sw.js" 
+    if not file_path.exists():
+        log_error("PWA", f"sw.js not found at {file_path}")
         return Response(status_code=404)
-    return RedirectResponse("/", status_code=303)
+    return FileResponse(
+        file_path, 
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/"}
+    )
 
-@app.get("/settings")
-async def settings_page(request: Request, db: Session = Depends(get_session)):
-    user_id = get_current_user(request)
-    if not user_id: return RedirectResponse("/login", status_code=303)
-    
-    user = db.get(User, user_id)
-    return templates.TemplateResponse("settings.html", {"request": request, "user": user})
+@app.get("/manifest.json", tags=["PWA"], include_in_schema=False)
+async def serve_manifest(): 
+    file_path = STATIC_DIR / "manifest.json" 
+    if not file_path.exists():
+        return Response(status_code=404)
+    return FileResponse(file_path)
+
+@router.get("/calendar", response_class=HTMLResponse)
+async def calendar_page(request: Request, user=Depends(get_current_user)):
+    # Если юзер не залогинен — отправляем на вход
+    if not user:
+        return RedirectResponse(url="/auth/login", status_code=303)
+        
+    return templates.TemplateResponse(
+        "calendar.html", 
+        {"request": request, "user": user}
+    )
+
+# ✅ «Заплатка» для старых ссылок, чтобы убрать петлю
+@app.get("/login", include_in_schema=False)
+async def redirect_old_login():
+    return RedirectResponse(url="/auth/login", status_code=301)
+
+@app.get("/register/{token}", include_in_schema=False)
+async def redirect_old_register(token: str):
+    return RedirectResponse(url=f"/auth/register/{token}", status_code=301)
+
+@app.get("/debug-test")
+async def debug_test():
+    return {"status": "ok", "message": "FastAPI работает!"}

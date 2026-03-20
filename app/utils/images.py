@@ -1,50 +1,44 @@
 import os
 from PIL import Image, ImageOps
 from typing import Optional, Union, BinaryIO
-from app.logger import log_error # Используем твой логгер для солидности
+from app.logger import log_error
 
 def process_and_save_image(
     source_file: Union[BinaryIO, str], 
     target_path: str, 
-    # Увеличим max_size до 2560 (QHD), так как при 20МБ исходнике 
-    # 1920 может показаться маловато для больших экранов
     max_size=(2560, 1440), 
-    quality=85 # 85 — золотая середина для WebP
+    quality=85 
 ) -> Optional[str]:
     """
-    Профессиональная обработка: EXIF, RGB-конвертация, сжатие в WebP.
+    Профессиональная обработка: EXIF, сохранение альфа-канала, сжатие в WebP.
     """
     try:
         with Image.open(source_file) as img:
-            # 1. Исправляем ориентацию (чтобы фото не лежали на боку)
+            # 1. Исправляем ориентацию (чтобы фото с телефонов не лежали на боку)
             img = ImageOps.exif_transpose(img)
             
-            # 2. Обработка прозрачности (RGBA -> RGB)
-            # Если оставить как есть, при конвертации в RGB прозрачный фон станет черным.
-            # Мы сделаем его белым — это выглядит аккуратнее.
+            # 2. Умная конвертация (WebP поддерживает прозрачность!)
+            # Если картинка с прозрачностью, переводим в чистый RGBA.
+            # Всю экзотику (CMYK, LAB) конвертируем в стандартный RGB.
             if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
-                background = Image.new("RGB", img.size, (255, 255, 255))
-                # Накладываем изображение на белый фон, используя альфа-канал как маску
-                background.paste(img, mask=img.convert("RGBA").split()[3]) 
-                img = background
+                img = img.convert("RGBA")
             elif img.mode != "RGB":
                 img = img.convert("RGB")
             
-            # 3. Уменьшение размера с сохранением деталей
-            # LANCZOS идеален для уменьшения тяжелых файлов.
+            # 3. Уменьшение размера с сохранением деталей (Lanczos)
             img.thumbnail(max_size, Image.Resampling.LANCZOS)
             
-            # 4. Формируем путь (всегда .webp)
+            # 4. Формируем путь
             target_path_webp = os.path.splitext(target_path)[0] + ".webp"
             
             # 5. Сохранение
-            # method=6 — это максимальное сжатие WebP (дольше обрабатывает, но файл меньше)
+            # method=4 — золотой стандарт для серверов (быстро и компактно)
             img.save(
                 target_path_webp, 
                 "WEBP", 
                 quality=quality, 
                 optimize=True, 
-                method=6 
+                method=4 
             )
             
             return target_path_webp

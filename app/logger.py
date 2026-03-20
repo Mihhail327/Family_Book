@@ -1,34 +1,66 @@
-import logging
 import os
-from datetime import datetime
+import logging
+from logging.handlers import TimedRotatingFileHandler
+from typing import Optional
+from app.config import settings
 
-# Создаем папку для логов, если её нет
-LOG_DIR = "logs"
-if not os.path.exists(LOG_DIR):
-    os.makedirs(LOG_DIR)
+# 1. Используем путь из настроек
+LOG_DIR = settings.ROOT_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-# Настройка основного конфига
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - [%(levelname)s] - %(message)s',
-    handlers=[
-        # encoding='utf-8' критически важен для записи кириллицы (имен пользователей)
-        logging.FileHandler(os.path.join(LOG_DIR, "access.log"), encoding='utf-8'),
-        logging.StreamHandler() # Чтобы видеть логи прямо в терминале PyCharm/VS Code
-    ]
-)
+# Единый формат для всех логов
+formatter = logging.Formatter('%(asctime)s - [%(levelname)s] - %(message)s')
 
-logger = logging.getLogger("FamilyBook")
-
-def log_action(user: str, action: str, details: str):
+def setup_logger(name: str, log_file: str, level=logging.INFO) -> logging.Logger:
     """
-    Логирует действия пользователей (вход, регистрация, создание поста).
-    Это поможет тебе на защите показать статистику активности.
+    Фабрика логгеров с умной ротацией.
     """
-    logger.info(f"👤 USER: {user} | ⚡ ACTION: {action} | 📝 DETAILS: {details}")
+    # 🟢 ИСПРАВЛЕНО: Убрано дублирование. Выбираем только один тип хендлера.
+    if os.getenv("ENVIRONMENT") == "testing":
+        # Для тестов используем обычный FileHandler, чтобы Windows не блокировала файлы при ротации
+        handler = logging.FileHandler(LOG_DIR / log_file, encoding='utf-8')
+    else:
+        # Для продакшена — TimedRotatingFileHandler с очисткой старых логов (30 дней)
+        handler = TimedRotatingFileHandler(
+            filename=LOG_DIR / log_file,
+            when="midnight",
+            interval=1,
+            backupCount=30,
+            encoding='utf-8'
+        )
+
+    handler.setFormatter(formatter)
+    
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    
+    # Очищаем старые хендлеры, если логгер инициализируется повторно (важно для тестов)
+    if logger.hasHandlers():
+        logger.handlers.clear()
+        
+    logger.addHandler(handler)
+    
+    # Для системного логгера добавляем вывод в консоль (удобно для Docker/Render)
+    if name == "System":
+        console = logging.StreamHandler()
+        console.setFormatter(formatter)
+        logger.addHandler(console)
+        
+    return logger
+
+# --- Инициализация независимых каналов ---
+audit_logger = setup_logger("Audit", "audit.log")
+system_logger = setup_logger("System", "system.log")
+error_logger = setup_logger("Error", "error.log", level=logging.ERROR)
+
+def log_action(user: Optional[str], action: str, details: str):
+    username = user if user else "SYSTEM"
+    message = f"👤 USER: {username} | ⚡ ACTION: {action} | 📝 DETAILS: {details}"
+    
+    if username == "SYSTEM" or "SYSTEM_" in username:
+        system_logger.info(message)
+    else:
+        audit_logger.info(message)
 
 def log_error(context: str, message: str):
-    """
-    Отдельный метод для записи ошибок сервера или базы данных.
-    """
-    logger.error(f"❌ ERROR in {context}: {message}")
+    error_logger.error(f"❌ ERROR in {context}: {message}")

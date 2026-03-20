@@ -1,0 +1,87 @@
+<header class="md:hidden fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 py-3 bg-slate-100/60 dark:bg-slate-900/60 backdrop-blur-xl border-b border-slate-300/20 dark:border-white/10 shadow-sm">
+    
+    <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-yellow-600 flex items-center justify-center shadow-md">
+            <span class="text-white font-bold text-sm">📖</span>
+        </div>
+        <span class="text-lg font-black tracking-tight text-slate-900 dark:text-white/90">Family<span class="text-brand">Book</span></span>
+    </div>
+
+    <div class="flex items-center gap-3">
+        
+        <button @click="darkMode = !darkMode" class="p-2 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 active:scale-95 transition-all text-sm haptic-btn">
+            <span x-show="!darkMode">🌙</span>
+            <span x-show="darkMode" x-cloak>☀️</span>
+        </button>
+
+        <a href="/auth/logout" class="p-2 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-rose-500 active:scale-95 transition-all haptic-btn">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+        </a>
+    </div>
+</header>
+<nav class="fixed bottom-0 left-0 w-full z-[100] md:relative md:w-64 md:h-screen flex md:flex-col justify-between md:justify-start items-center md:items-stretch px-6 py-3 md:p-6 bg-slate-900/60 md:bg-slate-900/40 backdrop-blur-xl border-t md:border-t-0 md:border-r border-white/10 shadow-2xl transition-all duration-300">
+    
+    <div class="hidden md:flex items-center gap-3 mb-8 pl-2 cursor-default">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand to-yellow-600 flex items-center justify-center shadow-lg shadow-brand/20">
+            <span class="text-white font-bold text-xl drop-shadow-md">📖</span>
+        </div>
+        <div class="flex flex-col">
+            <span class="text-xl font-black tracking-tight text-white/90 leading-none">Family<span class="text-brand">Book</span></span>
+            <span class="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">Семейная Летопись</span>
+        </div>
+    </div>
+
+    <div class="flex md:flex-col w-full justify-between md:justify-start gap-1 md:gap-2">
+        
+        <a href="/" class="flex flex-col md:flex-row items-center gap-1 md:gap-4 p-2 md:px-4 md:py-3 rounded-xl bg-white/10 md:bg-white/5 md:hover:bg-white/10 transition-all text-brand md:text-white group">
+            <span class="text-2xl md:text-xl group-hover:scale-110 transition-transform drop-shadow-md">🏠</span>
+            <span class="text-[10px] md:text-sm font-bold tracking-tight">Лента</span>
+        </a>
+
+        <a href="/calendar" class="flex flex-col md:flex-row items-center gap-1 md:gap-4 p-2 md:px-4 md:py-3 rounded-xl hover:bg-white/10 transition-all text-slate-400 hover:text-white group">
+            <span class="text-2xl md:text-xl group-hover:scale-110 transition-transform drop-shadow-md">📅</span>
+            <span class="text-[10px] md:text-sm font-bold tracking-tight">События</span>
+        </a>
+
+        <a href="#" class="md:hidden relative -top-6 flex flex-col items-center justify-center w-14 h-14 bg-gradient-to-tr from-brand to-yellow-500 rounded-full shadow-lg shadow-brand/40 text-white transform hover:scale-105 active:scale-95 transition-all">
+            <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+        </a>
+        
+        <a href="#" class="flex flex-col md:flex-row items-center gap-1 md:gap-4 p-2 md:px-4 md:py-3 rounded-xl hover:bg-white/10 transition-all text-slate-400 hover:text-white group">
+            <span class="text-2xl md:text-xl group-hover:scale-110 transition-transform drop-shadow-md">👥</span>
+            <span class="text-[10px] md:text-sm font-bold tracking-tight">Семья</span>
+        </a>
+
+        <a href="#" class="md:hidden flex flex-col md:flex-row items-center gap-1 md:gap-4 p-2 md:px-4 md:py-3 rounded-xl hover:bg-white/10 transition-all text-slate-400 hover:text-white group">
+            <span class="text-2xl md:text-xl group-hover:scale-110 transition-transform drop-shadow-md">👤</span>
+            <span class="text-[10px] md:text-sm font-bold tracking-tight">Профиль</span>
+        </a>
+    </div>
+
+    <div class="hidden md:flex flex-col mt-auto w-full pt-4 border-t border-white/10 space-y-4">
+        
+        <button @click="darkMode = !darkMode" class="w-full flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all active:scale-95 group">
+            <span class="text-xs font-black uppercase text-slate-400 tracking-widest group-hover:text-white transition-colors">Тема</span>
+            <span x-show="!darkMode" class="text-lg drop-shadow-md">🌙</span>
+            <span x-show="darkMode" class="text-lg drop-shadow-md" x-cloak>☀️</span>
+        </button>
+
+        {% if user %}
+        <div class="flex items-center space-x-3 p-2 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
+            <img src="{{ user.avatar_url | default('/static/images/default_avatar.png') }}" class="h-10 w-10 rounded-lg object-cover border border-white/20 shadow-lg">
+            <div class="flex flex-col leading-none overflow-hidden w-full">
+                <span class="text-white text-sm font-black truncate">{{ user.display_name }}</span>
+                {% if user.is_admin %}
+                    <span class="text-[9px] text-brand uppercase font-black tracking-widest mt-1 animate-pulse">Админ 🛠️</span>
+                {% endif %}
+            </div>
+            <a href="/logout" class="ml-auto p-2 text-rose-500 hover:bg-rose-500/20 rounded-lg transition-colors" title="Выйти">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+            </a>
+        </div>
+        {% endif %}
+
+    </div>
+</nav>

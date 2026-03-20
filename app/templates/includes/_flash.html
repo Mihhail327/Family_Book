@@ -1,0 +1,63 @@
+{% set messages = get_flashed_messages(request) %}
+{% if messages %}
+<div
+    x-data="{ show: true }"
+    x-show="show"
+    x-init="
+        setTimeout(() => show = false, 4000);
+        try {
+            document.getElementById('notificationSound').play().catch(e => console.log('Звук заблокирован'));
+        } catch(e) {}
+    "
+    x-transition:enter="transition ease-out duration-300"
+    x-transition:enter-start="opacity-0 transform -translate-y-4 scale-95"
+    x-transition:enter-end="opacity-100 transform translate-y-0 scale-100"
+    x-transition:leave="transition ease-in duration-300"
+    x-transition:leave-start="opacity-100 transform translate-y-0 scale-100"
+    x-transition:leave-end="opacity-0 transform -translate-y-4 scale-95"
+    class="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-[95%] max-w-md px-4"
+    x-cloak
+>
+    <div class="glass-card overflow-hidden rounded-2xl shadow-2xl border-l-4 
+        {% if messages.category == 'success' %} border-emerald-500 bg-emerald-500/10 
+        {% elif messages.category == 'error' %} border-rose-500 bg-rose-500/10 
+        {% else %} border-blue-500 bg-blue-500/10 {% endif %}"
+    >
+        <div class="flex items-center p-4 backdrop-blur-xl">
+            <div class="flex-shrink-0 mr-3 text-2xl">
+                {% if messages.category == 'success' %}
+                    <span class="text-emerald-500">✨</span>
+                {% elif messages.category == 'error' %}
+                    <span class="text-rose-500">⚠️</span>
+                {% else %}
+                    <span class="text-blue-500">ℹ️</span>
+                {% endif %}
+            </div>
+
+            <div class="flex-1 font-medium text-sm sm:text-base tracking-wide">
+                {{ messages.message }}
+            </div>
+
+            <button @click="show = false" class="ml-4 p-1 hover:bg-white/10 rounded-full transition-colors opacity-60 hover:opacity-100">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <div class="h-1 bg-white/10 w-full overflow-hidden">
+            <div class="h-full bg-current opacity-30 animate-progress"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes progress {
+        from { width: 100%; }
+        to { width: 0%; }
+    }
+    .animate-progress {
+        animation: progress 4s linear forwards;
+    }
+</style>
+{% endif %}

@@ -10,6 +10,8 @@ env/
 .env.dev
 .env.test
 .env.prod
+.dev.env
+debug_mobile.png
 
 # --- Databases ---
 *.db
