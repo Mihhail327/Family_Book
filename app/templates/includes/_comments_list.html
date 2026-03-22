@@ -1,28 +1,68 @@
-<div class="space-y-3 pt-3 border-t border-white/5 animate-in fade-in slide-in-from-top-4 duration-500">
-    {% for comment in post.comments %}
-    <div class="glass-card bg-white/5 p-4 rounded-2xl border border-white/5">
-        <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center space-x-2">
-                <img src="{{ comment.author.avatar_url or '/static/default_avatar.png' }}" class="w-6 h-6 rounded-full object-cover border border-white/10">
-                <span class="font-bold text-xs text-white">{{ comment.author.display_name }}</span>
+<div class="space-y-4 pt-4 border-t border-slate-200/10 dark:border-white/5 animate-in fade-in slide-in-from-top-4 duration-500">
+    
+    <div class="space-y-4 max-h-[400px] overflow-y-auto px-2 custom-scrollbar">
+        {% for comment in post.comments | sort(attribute='created_at') %}
+        <div class="flex space-x-3 group animate-in slide-in-from-left duration-300" id="comment-{{ comment.id }}">
+            <div class="relative flex-shrink-0">
+                <img src="{{ comment.author.avatar_url or '/static/default_avatar.png' }}" 
+                     class="w-7 h-7 rounded-full object-cover border border-brand/20 shadow-sm transition-transform group-hover:scale-110 duration-300">
             </div>
-            <span class="local-time text-[8px] text-slate-500 font-bold uppercase" data-utc="{{ comment.created_at.isoformat() if comment.created_at else '' }}">
-                {{ comment.created_at.strftime('%H:%M') if comment.created_at else '' }}
-            </span>
+            
+            <div class="flex-1 min-w-0">
+                <div class="glass-card bg-white/40 dark:bg-white/5 rounded-2xl rounded-tl-none p-3 border border-white/10 shadow-sm transition-all hover:border-brand/30">
+                    <div class="flex justify-between items-center mb-1 gap-4">
+                        <span class="text-[10px] font-black uppercase tracking-widest text-brand truncate">
+                            {{ comment.author.display_name }}
+                        </span>
+                        <span class="text-[9px] text-slate-500 font-bold whitespace-nowrap local-time" 
+                              data-utc="{{ comment.created_at.isoformat() if comment.created_at else '' }}">
+                            {{ comment.created_at.strftime('%H:%M') if comment.created_at else '' }}
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-800 dark:text-slate-200 leading-relaxed break-words font-medium">
+                        {{ comment.content }}
+                    </p>
+                </div>
+                
+                {% if user and (comment.author_id == user.id or user.role == 'admin') %}
+                <div class="flex justify-end mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button class="text-[9px] font-black uppercase tracking-tighter text-rose-500/60 hover:text-rose-500 transition-colors haptic-btn"
+                            hx-delete="/posts/comments/{{ comment.id }}"
+                            hx-target="#comment-{{ comment.id }}"
+                            hx-swap="outerHTML swap:0.4s"
+                            hx-confirm="Удалить это воспоминание?">
+                        Удалить
+                    </button>
+                </div>
+                {% endif %}
+            </div>
         </div>
-        <p class="text-slate-300 text-xs leading-relaxed pl-8">{{ comment.content }}</p>
+        {% else %}
+        <div class="text-center py-10 opacity-40">
+            <div class="text-3xl mb-2">📜</div>
+            <p class="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-black italic">
+                Семейное обсуждение пусто...
+            </p>
+        </div>
+        {% endfor %}
     </div>
-    {% else %}
-    <div class="text-center p-4">
-        <p class="text-slate-500 text-[10px] uppercase tracking-widest font-bold">Пока нет комментариев</p>
-    </div>
-    {% endfor %}
 
-    <form action="/posts/{{ post.id }}/comment" method="post" class="mt-4 flex gap-2 pl-2">
+    <form hx-post="/posts/{{ post.id }}/comment" 
+          hx-target="#comments-{{ post.id }}" 
+          hx-swap="innerHTML"
+          hx-on::after-request="this.reset(); convertToLocalTime();"
+          class="mt-4 flex items-center gap-2 bg-black/5 dark:bg-white/5 p-1.5 rounded-2xl border border-white/10 relative z-10 focus-within:border-brand/40 transition-colors">
+        
         <input type="text" name="content" required maxlength="500" placeholder="Написать ответ..." 
-               class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50 transition-colors">
-        <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-xl transition-colors haptic-btn active:scale-95">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+               autocomplete="off"
+               class="flex-1 bg-transparent border-none px-4 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:ring-0 outline-none">
+        
+        <button type="submit" 
+                @click="if ('vibrate' in navigator) navigator.vibrate(10);"
+                class="bg-brand text-white p-2.5 rounded-xl shadow-lg shadow-brand/20 hover:scale-105 active:scale-95 transition-all haptic-btn flex items-center justify-center group/send">
+            <svg class="w-4 h-4 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+            </svg>
         </button>
     </form>
 </div>

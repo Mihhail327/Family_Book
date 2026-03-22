@@ -1,19 +1,19 @@
-<div @click="$dispatch('open-post-modal')" 
-     class="glass-card backdrop-blur-xl p-5 rounded-[2rem] mb-10 flex items-center space-x-5 cursor-pointer hover:bg-white/10 transition-all active:scale-[0.97] shadow-2xl shadow-black/40 group border border-white/10 animate-in fade-in slide-in-from-top-4 duration-700">
+<div @click="createPostModalOpen = true" 
+     class="hidden md:flex glass-card bg-white/30 dark:bg-slate-900/40 backdrop-blur-md p-5 rounded-[2rem] mb-10 items-center space-x-5 cursor-pointer hover:bg-white/50 dark:hover:bg-slate-900/60 transition-all active:scale-[0.98] shadow-xl hover:shadow-2xl shadow-black/10 dark:shadow-black/40 group border border-slate-200 dark:border-white/10 animate-in fade-in slide-in-from-top-4 duration-700 haptic-btn">
     
     <div class="relative shrink-0">
-        <div class="absolute inset-0 bg-blue-500/20 rounded-full blur-md group-hover:bg-blue-500/40 transition-all"></div>
-        <img src="{{ user.avatar_url or 'https://ui-avatars.com/api/?background=2563eb&color=fff&name=' + user.display_name|urlencode }}" 
-             class="relative w-11 h-11 rounded-full border-2 border-white/10 object-cover group-hover:border-blue-500 transition-all duration-300 shadow-lg"
+        <div class="absolute inset-0 bg-brand/20 rounded-full blur-md group-hover:bg-brand/40 transition-all"></div>
+        <img src="{{ user.avatar_url or 'https://ui-avatars.com/api/?background=d4af37&color=fff&name=' + user.display_name|urlencode }}" 
+             class="relative w-11 h-11 rounded-full border-2 border-white dark:border-white/10 object-cover group-hover:border-brand transition-all duration-300 shadow-lg"
              alt="User">
-        <div class="absolute -bottom-0.5 -right-0.5 bg-green-500 w-4 h-4 rounded-full border-2 border-[#1e293b] animate-pulse"></div>
+        <div class="absolute -bottom-0.5 -right-0.5 bg-emerald-500 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 animate-pulse"></div>
     </div>
     
-    <span class="text-slate-300 font-bold text-sm sm:text-lg truncate tracking-tight group-hover:text-white transition-colors">
-        Что нового, <span class="text-blue-400 group-hover:text-blue-300 transition-colors">{{ user.display_name }}</span>?
+    <span class="text-slate-600 dark:text-slate-300 font-bold text-sm sm:text-lg truncate tracking-tight group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+        Что нового, <span class="text-brand group-hover:brightness-110 transition-all">{{ user.display_name }}</span>?
     </span>
     
-    <div class="ml-auto bg-white/5 p-3 rounded-2xl border border-white/10 text-blue-400 group-hover:bg-blue-600 group-hover:text-white group-hover:rotate-12 group-hover:scale-110 transition-all duration-300 shadow-inner">
+    <div class="ml-auto bg-black/5 dark:bg-white/5 p-3 rounded-2xl border border-slate-200 dark:border-white/10 text-brand group-hover:bg-gradient-to-tr group-hover:from-brand group-hover:to-yellow-500 group-hover:text-white group-hover:rotate-12 group-hover:scale-110 transition-all duration-300 shadow-sm dark:shadow-inner">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>

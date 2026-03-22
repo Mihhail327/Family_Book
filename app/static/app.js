@@ -13,120 +13,57 @@ if ("serviceWorker" in navigator) {
 // ==========================================
 // 2. ГЛОБАЛЬНАЯ ТАКТИЛЬНОСТЬ (Haptics)
 // ==========================================
-// Любой элемент с классом haptic-btn будет приятно вибрировать при клике
 document.addEventListener('click', (e) => {
-    if (e.target.closest('.haptic-btn') && "vibrate" in navigator) {
-        navigator.vibrate(15); // Очень легкая, премиальная вибрация
+    const target = e.target.closest('.haptic-btn');
+    // Вибрируем только если это haptic-btn И у элемента НЕТ x-data (чтобы не мешать Alpine)
+    if (target && !target.closest('[x-data]') && "vibrate" in navigator) {
+        navigator.vibrate(15); 
     }
 });
 
 // ==========================================
-// 3. ЛАЙКИ (AJAX + Confetti + Ripple)
+// 3. УТИЛИТЫ И UI-ЭФФЕКТЫ
 // ==========================================
-async function toggleLike(btn, postId) {
-    if (btn.dataset.loading === "true") return;
-    btn.dataset.loading = "true";
 
-    const iconSpan = btn.querySelector(".heart-icon");
-    const countSpan = btn.querySelector(".count");
-
-    if (!iconSpan || !countSpan) return;
-
-    const isLiked = iconSpan.textContent.includes("❤️");
-
-    // Эффект «Волны» (Ripple Effect)
-    const ripple = document.createElement("span");
-    ripple.className = "absolute inset-0 rounded-full bg-rose-500/30 animate-ping pointer-events-none";
-    btn.classList.add("relative"); 
-    btn.appendChild(ripple);
-    setTimeout(() => ripple.remove(), 600);
-
-    // Оптимистичное обновление UI (чтобы юзер не ждал ответа сервера)
-    iconSpan.textContent = isLiked ? "🤍" : "❤️";
-    
-    // Проверяем настройки: стреляем конфетти, только если юзер не выключил это
-    const heartsEnabled = localStorage.getItem('hearts_enabled') !== 'false';
-    if (!isLiked && heartsEnabled) {
-        const rect = btn.getBoundingClientRect();
-        triggerConfetti(
-            (rect.left + rect.width / 2) / window.innerWidth,
-            (rect.top + rect.height / 2) / window.innerHeight
-        );
-    }
-
-    try {
-        const res = await fetch(`/posts/${postId}/like`, { method: "POST" });
-        if (res.status === 401) {
-            if (!window.location.pathname.includes('/login')) {
-                window.location.href = "/login";
-            }
-            return;
-    }
-        
-        // Читаем точный ответ от сервера и обновляем счетчик 100% достоверно
-        const data = await res.json();
-        countSpan.textContent = data.likes_count;
-        
-    } catch (e) {
-        console.error("Like error:", e);
-        // Откат (Rollback) при ошибке сети
-        iconSpan.textContent = isLiked ? "❤️" : "🤍";
-    } finally {
-        setTimeout(() => btn.dataset.loading = "false", 300);
-    }
-}
-
-function triggerConfetti(x, y) {
-    if (typeof confetti !== "function") return;
-    confetti({
-        particleCount: 40,
-        spread: 80,
-        origin: { x, y },
-        shapes: [confetti.shapeFromText({ text: "❤️", scalar: 2 })],
-        colors: ["#ef4444", "#ec4899", "#f472b6"],
-        zIndex: 10000,
-    });
-}
-
-// ==========================================
-// 4. ДОЛГОЕ НАЖАТИЕ (LONG PRESS)
-// ==========================================
-let longPressTimer;
-
-function startLongPress(postId) {
-    longPressTimer = setTimeout(() => {
-        if ("vibrate" in navigator) navigator.vibrate([30, 50, 30]); 
-        openReactionsMenu(postId); 
-    }, 500); 
-}
-
-function cancelLongPress() {
-    clearTimeout(longPressTimer);
-}
-
-function openReactionsMenu(postId) {
-    console.log("Открываем меню реакций для поста:", postId);
-    // TODO: Интеграция с HTMX для вызова модалки реакций
-}
-
-// ==========================================
-// 5. УТИЛИТЫ И UI-ЭФФЕКТЫ
-// ==========================================
-function handlePreview(event) {
+// Превью изображений
+window.handlePreview = function(event) {
     const area = document.getElementById("preview-area");
     if (!area) return;
+    
+    area.querySelectorAll('img').forEach(img => URL.revokeObjectURL(img.src));
     area.innerHTML = "";
 
-    Array.from(event.target.files).forEach((file) => {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) {
+        area.classList.add('hidden');
+        return;
+    }
+    
+    area.classList.remove('hidden');
+
+    files.forEach((file) => {
         const url = URL.createObjectURL(file);
-        const img = document.createElement("img");
-        img.src = url;
-        img.className = "w-24 h-24 object-cover rounded-lg border border-white/10 shadow-sm";
-        area.appendChild(img);
+        const wrapper = document.createElement("div");
+        wrapper.className = "relative group aspect-square animate-in zoom-in duration-300";
+        
+        wrapper.innerHTML = `
+            <img src="${url}" class="w-full h-full object-cover rounded-xl border border-white/10 shadow-md">
+            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center cursor-pointer">
+                <span class="text-[10px] font-black text-white uppercase tracking-widest">Удалить</span>
+            </div>
+        `;
+
+        wrapper.onclick = () => {
+            wrapper.remove();
+            if (area.children.length === 0) area.classList.add('hidden');
+        };
+
+        area.appendChild(wrapper);
     });
 }
 
-function convertToLocalTime() {
+// Локальное время
+window.convertToLocalTime = function() {
     document.querySelectorAll(".local-time").forEach((el) => {
         let utcData = el.getAttribute("data-utc");
         if (!utcData) return;
@@ -142,12 +79,11 @@ function convertToLocalTime() {
     });
 }
 
-// Инициализация времени при загрузке
-document.addEventListener("htmx:afterSwap", (e) => {
-    convertToLocalTime();
-});
+// Инициализация при загрузке и после работы HTMX
+document.addEventListener("DOMContentLoaded", window.convertToLocalTime);
+document.addEventListener("htmx:afterSwap", window.convertToLocalTime);
 
-// Отслеживание курсора для эффекта золотого фона (Glassmorphism)
+// Эффект курсора (для десктопа)
 document.addEventListener('mousemove', (e) => {
     const x = (e.clientX / window.innerWidth) * 100;
     const y = (e.clientY / window.innerHeight) * 100;
@@ -155,25 +91,116 @@ document.addEventListener('mousemove', (e) => {
     document.documentElement.style.setProperty('--mouse-y', `${y}%`);
 });
 
-// --- Глобальная система смены темы (Dark/Light) ---
+// Глобальная тема
 window.toggleTheme = () => {
     const isDark = document.documentElement.classList.toggle('dark');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    
-    // Легкая вибрация при переключении (Haptic feedback)
     if ('vibrate' in navigator) navigator.vibrate(10);
-    
-    console.log(`Тема изменена на: ${isDark ? 'Dark' : 'Light'}`);
 };
 
-// Инициализация темы при загрузке страницы (чтобы не было белой вспышки)
+// Инициализация темы без вспышки
 (function initTheme() {
     const savedTheme = localStorage.getItem('theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
     if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
         document.documentElement.classList.add('dark');
     } else {
         document.documentElement.classList.remove('dark');
     }
 })();
+
+document.addEventListener('DOMContentLoaded', () => {
+    const checkInput = setInterval(() => {
+        const fileInput = document.getElementById('post-file-input');
+        const previewArea = document.getElementById('preview-area');
+
+        if (fileInput && previewArea) {
+            clearInterval(checkInput);
+            console.log("✅ Система превью Family_Book активирована!");
+
+            fileInput.addEventListener('change', function(event) {
+                const files = event.target.files;
+                previewArea.innerHTML = '';
+                
+                if (files.length > 0) {
+                    previewArea.style.display = 'grid';
+                }
+
+                Array.from(files).forEach(file => {
+                    if (!file.type.startsWith('image/')) return;
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const div = document.createElement('div');
+                        div.className = 'relative aspect-square rounded-xl overflow-hidden border border-white/10 shadow-xl bg-white/5 animate-in zoom-in duration-300';
+                        div.innerHTML = `
+                            <img src="${e.target.result}" class="w-full h-full object-cover">
+                            <div class="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <span class="text-[10px] text-white font-bold uppercase tracking-widest">OK</span>
+                            </div>
+                        `;
+                        previewArea.appendChild(div);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            });
+        }
+    }, 500);
+});
+
+// Функция для отрисовки карточек превью
+function createPreviewCard(src) {
+    const div = document.createElement('div');
+    div.className = 'relative aspect-square rounded-xl overflow-hidden border border-white/10 shadow-xl bg-white/5 animate-in zoom-in duration-300';
+    div.innerHTML = `
+        <img src="${src}" class="w-full h-full object-cover">
+        <div class="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+            <span class="text-[10px] text-white font-bold uppercase tracking-widest">OK</span>
+        </div>
+    `;
+    return div;
+}
+
+// Главная логика инициализации
+const initPhotoPreview = () => {
+    const fileInput = document.getElementById('post-file-input');
+    const previewArea = document.getElementById('preview-area');
+
+    if (fileInput && previewArea && !fileInput.dataset.initialized) {
+        fileInput.dataset.initialized = "true"; // Чтобы не вешать событие дважды
+        
+        fileInput.addEventListener('change', function(e) {
+            const files = e.target.files;
+            previewArea.innerHTML = '';
+            
+            if (files.length > 0) {
+                previewArea.style.display = 'grid';
+                previewArea.classList.remove('hidden');
+            }
+
+            Array.from(files).forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const card = createPreviewCard(event.target.result);
+                    previewArea.appendChild(card);
+                };
+                reader.readAsDataURL(file);
+            });
+            console.log("📸 Превью обновлено для " + files.length + " файлов");
+        });
+        
+        console.log("✅ Система превью подключена к инпуту");
+    }
+};
+
+// Следим за изменениями в DOM (когда Alpine открывает модалку)
+const observer = new MutationObserver(() => {
+    initPhotoPreview();
+});
+
+// Запускаем наблюдение
+observer.observe(document.body, { childList: true, subtree: true });
+
+// На всякий случай запускаем один раз при загрузке
+document.addEventListener('DOMContentLoaded', initPhotoPreview);

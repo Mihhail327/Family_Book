@@ -1,0 +1,44 @@
+<div class="flex items-center justify-between mb-6 px-4 animate-in fade-in duration-500">
+    <h3 class="text-xl font-black text-white uppercase tracking-tighter drop-shadow-2xl">
+        Планы на <span class="text-blue-400">{{ selected_date }}</span>
+    </h3>
+</div>
+
+<div class="space-y-4 px-2">
+    {% for event in events %}
+    <div class="glass-card p-5 rounded-[2rem] border-l-4 flex items-center justify-between bg-slate-900/60 backdrop-blur-xl border-white/10
+        {% if event.event_type == 'birthday' %} border-pink-500 {% elif event.event_type == 'meeting' %} border-blue-500 {% else %} border-amber-400 {% endif %}">
+        
+        <div class="flex items-center gap-5 flex-1 min-w-0">
+            <div class="flex flex-col items-center min-w-[55px] border-r border-white/10 pr-4">
+                <span class="text-white font-black text-sm tracking-tighter">{{ event.event_time }}</span>
+                <span class="text-[8px] text-blue-400 font-black uppercase tracking-widest">Time</span>
+            </div>
+
+            <div class="flex-1 min-w-0 pr-2">
+                <h4 class="text-white font-black text-base tracking-tight drop-shadow-sm break-words whitespace-normal">{{ event.title }}</h4>
+                <div class="flex items-center gap-2 mt-1">
+                     <span class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">
+                        {% if event.event_type == 'birthday' %}🎂 День рождения{% elif event.event_type == 'meeting' %}🤝 Встреча{% else %}📅 Событие{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <button hx-delete="/calendar/events/{{ event.id }}"
+                hx-confirm="Удалить это событие?"
+                hx-target="closest .glass-card"
+                hx-swap="outerHTML swap:0.5s"
+                class="p-2 text-slate-500 hover:text-red-400 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+        </button>
+    </div>
+    {% else %}
+    <div class="glass-card p-12 text-center rounded-[3rem] border-dashed border-white/20 bg-slate-900/80 backdrop-blur-2xl shadow-2xl">
+        <div class="text-5xl mb-6 filter grayscale opacity-30">📅</div>
+        <p class="text-white/60 text-[10px] font-black uppercase tracking-[0.3em] mb-2">
+            На этот день планов нет
+        </p>
+    </div>
+    {% endfor %}
+</div>

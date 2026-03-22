@@ -1,12 +1,15 @@
+from datetime import date
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, APIRouter, Request, Depends, Response
+from fastapi import FastAPI, Form, Request, Depends, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 
+from app.models import User
+from app.routers import family
 from app.config import STATIC_DIR, settings
 from app.database import create_db_and_tables, engine
 from app.api import auth, posts
@@ -19,7 +22,7 @@ from app.security import get_current_user
 print(f"🔍 Ищу файл тут: {os.path.join(str(STATIC_DIR), 'app.js')}")
 print(f"❓ Файл реально существует? {os.path.exists(os.path.join(str(STATIC_DIR), 'app.js'))}")
 
-router = APIRouter()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,6 +44,37 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.PROJECT_NAME, version=settings.VERSION, lifespan=lifespan)
 
+# @app.middleware("http")
+# async def update_last_seen_middleware(request: Request, call_next):
+#     if request.url.path.startswith("/static") or request.url.path == "/debug-test":
+#         return await call_next(request)
+
+#     response = await call_next(request)
+    
+#     try:
+#         user_id = get_current_user(request)
+#         if user_id:
+#             with Session(engine) as session:
+#                 user = session.get(User, user_id)
+#                 if user:
+#                     from datetime import datetime, timezone
+#                     now = datetime.now(timezone.utc)
+
+#                     # Берем время и чиним его (если база выдала naive)
+#                     user_ts = user.last_seen
+#                     if user_ts and user_ts.tzinfo is None:
+#                         user_ts = user_ts.replace(tzinfo=timezone.utc)
+                    
+#                     # Если времени в базе еще нет ИЛИ прошло больше 60 сек
+#                     if not user_ts or (now - user_ts).total_seconds() > 60:
+#                         user.last_seen = now
+#                         session.add(user)
+#                         session.commit()
+#     except Exception as e:
+#         print(f"❌ Middleware Online Error: {e}")
+            
+#     return response
+
 # Middlewares
 app.add_middleware(
     CORSMiddleware,
@@ -56,12 +90,6 @@ if not STATIC_DIR.exists():
 else:
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     print(f"✅ Статика подключена: {STATIC_DIR}")
-
-# Подключаем доменные роутеры (главная страница '/' теперь обрабатывается внутри posts.router)
-app.include_router(auth.router, prefix="/auth", tags=["Auth"])
-app.include_router(posts.router, tags=["Posts"])
-app.include_router(admin.router, prefix="/admin", tags=["Admin"])
-app.include_router(router)
 
 # PWA магия (Service Worker и Manifest)
 @app.get("/sw.js", include_in_schema=False)
@@ -83,16 +111,107 @@ async def serve_manifest():
         return Response(status_code=404)
     return FileResponse(file_path)
 
-@router.get("/calendar", response_class=HTMLResponse)
+# --- КОРНЕВЫЕ РОУТЫ И КАЛЕНДАРЬ ---
+
+@app.get("/calendar", response_class=HTMLResponse) 
 async def calendar_page(request: Request, user=Depends(get_current_user)):
-    # Если юзер не залогинен — отправляем на вход
     if not user:
         return RedirectResponse(url="/auth/login", status_code=303)
+    return templates.TemplateResponse("calendar.html", {"request": request, "user": user})
+
+@app.get("/calendar/events")
+async def get_calendar_events(month: int, year: int):
+    # МЕНЯЕМ Post на Event!
+    from sqlmodel import select, func, extract
+    from app.models import Event # <--- Важно!
+    
+    with Session(engine) as session:
+        # Ищем уникальные дни в таблице Event по полю event_date
+        statement = select(func.distinct(extract('day', Event.event_date))).where(
+            extract('month', Event.event_date) == month,
+            extract('year', Event.event_date) == year
+        )
+        results = session.exec(statement).all()
+        return {"events": [int(day) for day in results]}
+
+@app.get("/calendar/day-details") 
+async def get_calendar_day_details(
+    day: int, month: int, year: int, 
+    request: Request, 
+    user=Depends(get_current_user)
+):
+    from sqlmodel import select, extract
+    from app.models import Event 
+    
+    with Session(engine) as session:
+        statement = select(Event).where(
+            extract('day', Event.event_date) == day,
+            extract('month', Event.event_date) == month,
+            extract('year', Event.event_date) == year
+        )
+        events = session.exec(statement).all()
         
-    return templates.TemplateResponse(
-        "calendar.html", 
-        {"request": request, "user": user}
-    )
+        # Рендерим новый файл, где только события
+        return templates.TemplateResponse(
+            "includes/_calendar_day_content.html", 
+            {
+                "request": request, 
+                "events": events,
+                "selected_date": f"{day:02d}.{month:02d}.{year}",
+                "user": user
+            }
+        )
+    
+@app.delete("/calendar/events/{event_id}")
+async def delete_event(
+    event_id: int, 
+    current_user_id: int = Depends(get_current_user) # Теперь это просто число
+):
+    from app.models import Event
+    from sqlmodel import Session
+    
+    with Session(engine) as session:
+        event = session.get(Event, event_id)
+        
+        # Сравниваем user_id события с current_user_id напрямую!
+        if event and event.user_id == current_user_id: 
+            session.delete(event)
+            session.commit()
+            return Response(status_code=200)
+            
+        return Response(status_code=403) # Если пытаются удалить чужое событие
+    
+@app.post("/calendar/events/add")
+async def add_calendar_event(
+    title: str = Form(...),
+    event_date: str = Form(...),
+    event_type: str = Form(...), 
+    user_id=Depends(get_current_user) # Переименовали переменную для ясности, так как это ID
+):
+    from app.models import Event, EventType
+    
+    if not user_id:
+        return Response(status_code=401)
+        
+    with Session(engine) as session:
+        # Вариант А: Если в БД нужно сохранить именно ID (самый простой)
+        new_event = Event(
+            title=title,
+            event_date=date.fromisoformat(event_date),
+            event_type=EventType(event_type), 
+            user_id=user_id  # Просто используем число, которое пришло из Depends
+        )
+        
+        session.add(new_event)
+        session.commit()
+    
+    return Response(headers={"HX-Refresh": "true"})
+
+# --- ПОДКЛЮЧЕНИЕ РОУТЕРОВ ---
+app.include_router(auth.router, prefix="/auth", tags=["Auth"])
+app.include_router(posts.router, tags=["Posts"])
+app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+app.include_router(family.router, prefix="/auth", tags=["Family"])
 
 # ✅ «Заплатка» для старых ссылок, чтобы убрать петлю
 @app.get("/login", include_in_schema=False)

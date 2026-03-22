@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from urllib import response
 from fastapi import APIRouter, Depends, Form, Request, HTTPException
 from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlmodel import Session
@@ -24,13 +25,13 @@ async def load_comments(
     if not post:
         return HTMLResponse("<div class='p-4 text-slate-500 text-sm'>Пост не найден</div>")
     
-    # Отдаем специальный микро-шаблон (без <head> и <body>)
+    # 🟢 HTMX всегда просит фрагмент. 
+    # Если зайти просто браузером, мы тоже отдадим этот фрагмент (это ок для отладки)
     return templates.TemplateResponse(
         "includes/_comments_list.html", 
         {"request": request, "post": post}
     )
 
-# 🔵 ОБНОВЛЕННЫЙ РОУТ: Добавили защиту от XSS и инъекций
 @router.post("/posts/{post_id}/comment")
 async def create_comment(
     post_id: int,
@@ -42,17 +43,16 @@ async def create_comment(
     if not user_id:
         raise HTTPException(status_code=401, detail="Необходимо авторизоваться")
 
-    # Для классических форм редиректим обратно на пост
-    # (Если будем делать отправку через HTMX, заменим на возврат фрагмента)
-    response = RedirectResponse(url=f"/posts/{post_id}", status_code=303)
-    
     clean_content = content.strip()
+    
+    # Подготавливаем базовый редирект для обычных браузеров
+    response = RedirectResponse(url=f"/posts/{post_id}", status_code=303)
+
     if not clean_content:
         flash(response, "Нельзя оставить пустой комментарий", "info")
         return response
 
     try:
-        # Прогоняем через наш Anti-XSS фильтр из security.py
         safe_content = validate_security_input(clean_content)
 
         new_comment = Comment(
@@ -63,10 +63,20 @@ async def create_comment(
         )
         session.add(new_comment)
         session.commit()
+        
+        # 🟢 МАГИЯ HTMX: Если запрос пришел от HTMX, не редиректим!
+        if request.headers.get("HX-Request"):
+            # Обновляем объект поста, чтобы подтянулся новый коммент
+            session.refresh(new_comment) 
+            post = session.get(Post, post_id)
+            return templates.TemplateResponse(
+                "includes/_comments_list.html", 
+                {"request": request, "post": post}
+            )
+            
         flash(response, "Комментарий добавлен", "success")
         
     except HTTPException as he:
-        # Ловим ошибку от validate_security_input (например, "Nice try!")
         flash(response, he.detail, "error")
     except Exception as e:
         log_error("COMMENT_ERR", str(e))

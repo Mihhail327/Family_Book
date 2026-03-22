@@ -1,6 +1,8 @@
 from sqlmodel import SQLModel, Field, Relationship
 from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
+from enum import Enum
+
 
 # --- 1. ТАБЛИЦА СВЯЗИ ЛАЙКОВ (Many-to-Many) ---
 class PostLike(SQLModel, table=True):
@@ -41,6 +43,7 @@ class User(SQLModel, table=True):
         back_populates="user", 
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
+    last_seen: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # --- 3. МОДЕЛЬ ПОСТА ---
 class Post(SQLModel, table=True):
@@ -130,3 +133,18 @@ class Notification(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     user: Optional[User] = Relationship(back_populates="notifications")
+
+class EventType(str, Enum):
+    BIRTHDAY = "birthday"
+    MEETING = "meeting"
+    CELEBRATION = "celebration"
+    OTHER = "other"
+
+class Event(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str
+    description: Optional[str] = None
+    event_time: str | None = Field(default="00:00")
+    event_date: date 
+    event_type: EventType = Field(default=EventType.OTHER)
+    user_id: int = Field(foreign_key="user.id")

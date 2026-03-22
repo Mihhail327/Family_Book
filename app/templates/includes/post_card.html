@@ -1,15 +1,15 @@
 <article
-  class="glass-card bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-[2rem] border border-slate-200 dark:border-white/10 overflow-hidden mb-4 transition-all relative hover:shadow-2xl hover:shadow-blue-500/10 group animate-in fade-in duration-500 break-inside-avoid"
+  class="glass-card bg-white/30 dark:bg-slate-900/40 backdrop-blur-md rounded-[2.5rem] border border-slate-200 dark:border-white/10 overflow-hidden transition-all relative hover:shadow-2xl hover:shadow-brand/10 group animate-in fade-in duration-500 mb-6"
   id="post-{{ post.id }}"
 >
   <div class="p-4 flex items-center justify-between bg-black/5 dark:bg-white/5 border-b border-slate-200 dark:border-white/5">
-    <div class="flex items-center space-x-3">
-      <img
-        src="{{ post.author.avatar_url or '/static/default_avatar.png' }}"
-        class="w-9 h-9 rounded-full border border-slate-300 dark:border-white/10 object-cover shadow-md"
-      />
+    <a href="/auth/profile/{{ post.author.username }}" class="flex items-center space-x-3 group/author">
+      <div class="relative">
+        <img src="{{ post.author.avatar_url or '/static/default_avatar.png' }}"
+             class="relative w-9 h-9 rounded-full border border-slate-300 dark:border-white/10 object-cover shadow-md group-hover/author:scale-110 group-hover/author:border-brand transition-all duration-300" />
+      </div>
       <div>
-        <p class="font-bold text-slate-900 dark:text-white text-xs tracking-tight">
+        <p class="font-bold text-slate-900 dark:text-white text-xs tracking-tight group-hover/author:text-brand transition-colors">
           {{ post.author.display_name }}
         </p>
         <p class="local-time text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest" 
@@ -17,197 +17,166 @@
            {{ post.created_at.strftime('%H:%M') if post.created_at else '...' }}
         </p>
       </div>
+    </a>
+    
+    {% if user and (post.author_id == user.id or user.role == 'admin') %}
+    <div class="relative" x-data="{ menuOpen: false }">
+        <button @click="menuOpen = !menuOpen" @click.away="menuOpen = false" 
+                class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 active:scale-90 transition-transform outline-none">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
+            </svg>
+        </button>
+
+        <div x-show="menuOpen" 
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95 translate-y-[-10px]"
+             x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+             class="absolute right-0 mt-2 w-40 glass-card bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden" x-cloak>
+            
+            {% if post.author_id == user.id %}
+            <button @click="menuOpen = false; $dispatch('open-edit-modal', { id: {{ post.id }}, content: `{{ post.content | escape }}` })" 
+                    class="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-slate-700 dark:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+                <span>✏️</span> Исправить
+            </button>
+            {% endif %}
+
+            <form action="/posts/delete/{{ post.id }}" method="post" onsubmit="return confirm('Удалить историю?')">
+                <button type="submit" class="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-colors border-t border-slate-100 dark:border-white/5 haptic-btn">
+                    <span>🗑️</span> Удалить
+                </button>
+            </form>
+        </div>
     </div>
+    {% endif %}
   </div>
 
   <div class="relative p-4" x-data="{ isRevealed: {{ 'false' if post.is_gift else 'true' }} }">
     
-    {# Подарок (Премиум Overlay) #}
     {% if post.is_gift %}
-    <div
-      x-show="!isRevealed"
-      x-transition:leave="transition ease-out duration-1000"
-      x-transition:leave-start="opacity-100 scale-100"
-      x-transition:leave-end="opacity-0 scale-125 blur-xl"
-      @click="
-          isRevealed = true;
-          // Добавляем магию при открытии коробки
-          if (typeof startConfetti === 'function') startConfetti();
-          if (typeof playNotificationSound === 'function') playNotificationSound();
-          if ('vibrate' in navigator) navigator.vibrate([30, 50, 30]);
-      "
-      class="absolute inset-4 z-30 flex flex-col items-center justify-center cursor-pointer overflow-hidden rounded-[1.5rem] backdrop-blur-2xl bg-white/80 dark:bg-slate-900/80 border border-brand/40 shadow-[0_0_40px_rgba(212,175,55,0.15)] group/gift haptic-btn"
-    >
-      <div class="absolute inset-0 bg-gradient-to-tr from-brand/20 via-transparent to-transparent opacity-0 group-hover/gift:opacity-100 transition-opacity duration-700"></div>
+<div 
+  x-show="!isRevealed" 
+  /* 🎁 Мы используем CSS-анимацию при скрытии элемента (leave), а не JS */
+  x-transition:leave="transition-all duration-800"
+  x-transition:leave-start="opacity-100" /* Необходимый костыль для Tailwind */
+  x-transition:leave-end="opacity-100"   /* Необходимый костыль для Tailwind */
+  
+  @click="
+      isRevealed = true; 
+      /* Убрали конфетти. Оставили только вибрацию */
+      if ('vibrate' in navigator) navigator.vibrate([10, 50, 10]); // Двойной короткий 'чпок'
+  "
+  /* Добавили класс animate-gift-dissolve, который срабатывает при клике */
+  :class="{ 'animate-gift-dissolve': isRevealed }"
+  class="absolute inset-4 z-30 flex flex-col items-center justify-center cursor-pointer overflow-hidden rounded-[1.5rem] backdrop-blur-2xl bg-white/95 dark:bg-slate-900/95 border border-brand/40 shadow-xl group/gift haptic-btn"
+>
+  <div class="absolute inset-0 bg-radial-gradient(ellipse at center, rgba(212,175,55,0.3) 0%, transparent 70%) mix-blend-color-dodge group-hover/gift:scale-110 transition-transform duration-700"></div>
 
-      <div class="relative z-10 text-6xl mb-4 transform group-hover/gift:scale-110 group-hover/gift:rotate-6 group-active/gift:scale-95 transition-all duration-500 drop-shadow-2xl animate-pulse">
-        🎁
-      </div>
+  <div class="relative z-10 text-6xl mb-4 transform group-hover/gift:scale-110 transition-all duration-500">🎁</div>
+  <p class="relative z-10 font-black uppercase tracking-[0.2em] text-[10px] text-brand">Снять упаковку</p>
+</div>
+{% endif %}
 
-      <p class="relative z-10 font-black uppercase tracking-[0.2em] text-[10px] text-brand drop-shadow-md">
-        Снять упаковку
-      </p>
-      <p class="relative z-10 text-[9px] text-slate-500 dark:text-slate-400 mt-2 tracking-wider font-medium">
-        Нажмите, чтобы открыть
-      </p>
-    </div>
-    {% endif %}
-
-    <a href="/posts/{{ post.id }}" 
-       class="block space-y-3 transition-all duration-1000 ease-out"
-       :class="!isRevealed ? 'blur-xl opacity-20 grayscale select-none pointer-events-none' : 'blur-0 opacity-100 grayscale-0'"
-       id="grid-{{ post.id }}">
-      
-      {% if post.content %}
-      <p class="text-slate-800 dark:text-slate-200 text-sm leading-relaxed line-clamp-4 font-medium">
-        {{ post.content }}
-      </p>
-      {% endif %}
+    <div class="space-y-4 transition-all duration-1000" :class="!isRevealed ? 'blur-xl opacity-20 grayscale select-none pointer-events-none' : 'blur-0 opacity-100 grayscale-0'">
+      {% if post.content %}<p class="text-slate-800 dark:text-slate-200 text-sm leading-relaxed font-medium select-text break-words whitespace-pre-wrap overflow-hidden">{{ post.content }}</p>{% endif %}
 
       {% if post.images %}
       <div class="rounded-xl overflow-hidden border border-slate-200 dark:border-white/5 shadow-inner">
-        {% if post.images|length == 1 %}
-          <img src="{{ post.images[0].url }}" class="w-full h-auto object-cover max-h-96" loading="lazy" />
-        {% else %}
-          <div class="grid gap-1 {% if post.images|length > 1 %}grid-cols-2{% endif %}">
+          <div class="grid gap-1 {% if post.images|length > 1 %}grid-cols-2{% else %}grid-cols-1{% endif %}">
             {% for img in post.images[:4] %}
-            <img src="{{ img.url }}" class="w-full h-32 object-cover hover:scale-105 transition-transform duration-500" loading="lazy" />
+            <img src="{{ img.url }}" @click="$dispatch('open-zoom', { src: '{{ img.url }}' })"
+                 class="w-full h-48 object-cover cursor-zoom-in hover:scale-105 transition-transform duration-500" loading="lazy" />
             {% endfor %}
           </div>
-        {% endif %}
       </div>
       {% endif %}
-    </a>
+    </div>
   </div>
 
-  <div class="px-2 pb-2">
-    <div class="glass-card bg-black/5 dark:bg-white/5 border-none rounded-2xl flex items-center p-1">
+  <div class="px-2 pb-4" x-data="{ commentsOpen: false, loaded: false }">
+    
+    <div class="glass-card bg-black/5 dark:bg-white/5 border border-white/5 rounded-2xl flex items-center p-1 relative z-10">
         
-        <div class="relative flex-1" 
-             x-data="{ 
+        <div class="relative flex-1" x-data="{ 
                 isLiked: {{ 'true' if user in post.likers else 'false' }}, 
                 likesCount: {{ post.likers|length }},
                 showReactions: false,
                 reactionTimer: null,
                 currentReaction: '{{ '❤️' if user in post.likers else '🤍' }}',
                 isRippling: false,
-
-                startLongPress() {
-                    this.reactionTimer = setTimeout(() => {
-                        this.showReactions = true;
-                        if ('vibrate' in navigator) navigator.vibrate([10, 30, 10]); 
-                    }, 400); 
-                },
-                cancelLongPress() {
-                    clearTimeout(this.reactionTimer);
-                },
-
-                toggleLike() {
+                startLongPress() { this.reactionTimer = setTimeout(() => { this.showReactions = true; if ('vibrate' in navigator) navigator.vibrate([10, 30, 10]); }, 400); },
+                cancelLongPress() { clearTimeout(this.reactionTimer); },
+                toggleLike(event) {
                     if (this.showReactions) return;
                     this.isLiked = !this.isLiked;
                     this.likesCount += this.isLiked ? 1 : -1;
                     this.currentReaction = this.isLiked ? '❤️' : '🤍';
-                    this.applyHapticsAndRipple();
+                    this.applyHapticsAndRipple(event);
+                    this.isRippling = false;
+                    setTimeout(() => { this.isRippling = true; }, 10);
                     this.sendRequest(this.currentReaction);
                 },
-
-                selectReaction(emoji) {
-                    this.showReactions = false;
-                    if (!this.isLiked) this.likesCount++;
-                    this.isLiked = true;
-                    this.currentReaction = emoji;
-                    this.applyHapticsAndRipple();
-                    this.sendRequest(emoji);
+                selectReaction(emoji, event) { this.showReactions = false; if (!this.isLiked) this.likesCount++; this.isLiked = true; this.currentReaction = emoji; this.applyHapticsAndRipple(event); this.isRippling = false; setTimeout(() => { this.isRippling = true; }, 10); this.sendRequest(emoji); },
+                applyHapticsAndRipple(event) { 
+                    if (this.isLiked && 'vibrate' in navigator) navigator.vibrate(20); 
+                    const btn = event.currentTarget;
+                    const ripple = document.createElement('div');
+                    ripple.className = 'animate-ripple';
+                    const rect = btn.getBoundingClientRect();
+                    const size = Math.max(rect.width, rect.height);
+                    const clientX = event.clientX || (event.touches ? event.touches[0].clientX : 0);
+                    const clientY = event.clientY || (event.touches ? event.touches[0].clientY : 0);
+                    ripple.style.width = ripple.style.height = `${size}px`;
+                    ripple.style.left = `${clientX - rect.left - size/2}px`;
+                    ripple.style.top = `${clientY - rect.top - size/2}px`;
+                    btn.appendChild(ripple);
+                    setTimeout(() => ripple.remove(), 600);
                 },
-
-                applyHapticsAndRipple() {
-                    this.isRippling = false;
-                    setTimeout(() => this.isRippling = true, 10);
-                    if (this.isLiked) {
-                        try {
-                            if (typeof playNotificationSound === 'function') playNotificationSound();
-                            if ('vibrate' in navigator) navigator.vibrate(20);
-                        } catch(e) {}
-                    }
-                },
-
-                sendRequest(reaction) {
-                    fetch(`/posts/{{ post.id }}/like`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ reaction: reaction })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.likes_count !== undefined) {
-                            this.likesCount = data.likes_count;
-                        }
-                    }).catch(() => {});
-                }
+                sendRequest(reaction) { fetch(`/posts/{{ post.id }}/like`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reaction: reaction }) }).catch(() => {}); }
              }">
             
-            <div x-show="showReactions" 
-                 @click.away="showReactions = false"
-                 x-transition:enter="transition ease-out duration-200 transform origin-bottom"
-                 x-transition:enter-start="opacity-0 scale-75 translate-y-4"
-                 x-transition:enter-end="opacity-100 scale-100 translate-y-0"
-                 x-transition:leave="transition ease-in duration-150 transform origin-bottom"
-                 x-transition:leave-start="opacity-100 scale-100 translate-y-0"
-                 x-transition:leave-end="opacity-0 scale-75 translate-y-4"
-                 class="absolute bottom-full left-0 mb-3 glass-card bg-white/90 dark:bg-slate-800/90 border border-slate-200 dark:border-white/20 p-2 rounded-full shadow-2xl flex items-center gap-2 z-50"
-                 x-cloak>
-                 <template x-for="emoji in ['❤️', '😂', '😮', '😢', '🎁']">
-                     <button @click="selectReaction(emoji)" 
-                             class="text-2xl hover:scale-125 transition-transform duration-200 p-1"
-                             x-text="emoji">
-                     </button>
+            <div x-show="showReactions" @click.away="showReactions = false" class="absolute bottom-full left-0 mb-3 glass-card bg-white/90 dark:bg-slate-800/90 border border-slate-200 dark:border-white/20 p-2 rounded-full shadow-2xl flex flex-nowrap items-center gap-2 z-50 whitespace-nowrap" x-cloak>
+                 <template x-for="emoji in ['❤️', '😂', '😮', '😢', '🔥']">
+                     <button @click="selectReaction(emoji, $event)" class="text-2xl hover:scale-125 transition-transform duration-200 p-1 reaction-pop" x-text="emoji"></button>
                  </template>
             </div>
 
-            <button
-              @click="toggleLike()"
-              @mousedown="startLongPress()"
-              @mouseup="cancelLongPress()"
-              @mouseleave="cancelLongPress()"
-              @touchstart="startLongPress()"
-              @touchend="cancelLongPress()"
-              class="w-full py-2 flex items-center justify-center space-x-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-xl transition-colors group/btn haptic-btn select-none outline-none"
-            >
-              <span class="text-xl inline-block transition-transform"
-                    :class="{'animate-ripple': isRippling, 'grayscale opacity-50': !isLiked}"
-                    x-text="currentReaction">
-              </span>
+            <button @click="toggleLike($event)" @mousedown="startLongPress()" @mouseup="cancelLongPress()" @mouseleave="cancelLongPress()" @touchstart="startLongPress()" @touchend="cancelLongPress()" class="w-full py-2 flex items-center justify-center space-x-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-xl transition-colors haptic-btn outline-none select-none">
+              <span class="text-xl inline-block transition-transform" :class="{'animate-merge': isRippling, 'grayscale opacity-50': !isLiked}" x-text="currentReaction"></span>
               <span class="count font-black text-xs text-slate-700 dark:text-white" x-text="likesCount"></span>
             </button>
         </div>
 
         <div class="w-px h-4 bg-slate-300 dark:bg-white/10"></div>
 
-        <div class="flex-1" x-data="{ commentsOpen: false, loaded: false }">
-            <button
-                @click="
-                    if(loaded) { 
-                        commentsOpen = !commentsOpen; 
-                    } else { 
-                        commentsOpen = true; 
-                        loaded = true; 
-                        htmx.ajax('GET', '/posts/{{ post.id }}/comments', '#comments-{{ post.id }}'); 
-                    }
-                    if ('vibrate' in navigator) navigator.vibrate(10);
-                "
-                class="w-full py-2 flex items-center justify-center space-x-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-xl transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white haptic-btn group outline-none"
-            >
-                <svg class="w-5 h-5 group-hover:-translate-y-1 transition-transform" :class="commentsOpen ? 'text-brand' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex-1">
+            <button @click="
+                        if(!loaded) { 
+                            htmx.ajax('GET', '/posts/{{ post.id }}/comments', '#comments-{{ post.id }}'); 
+                            loaded = true; 
+                        }
+                        commentsOpen = !commentsOpen;
+                        if ('vibrate' in navigator) navigator.vibrate(10);
+                    " 
+                    class="w-full py-2 flex items-center justify-center space-x-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-xl transition-all haptic-btn group outline-none">
+                <svg class="w-5 h-5 transition-transform" :class="commentsOpen ? 'text-brand scale-110' : 'group-hover:-translate-y-0.5'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
                 </svg>
-                <span class="font-black text-xs">{{ post.comments|length }}</span>
+                <span class="font-black text-xs text-slate-700 dark:text-white">{{ post.comments|length }}</span>
             </button>
-            
-            <div x-show="commentsOpen" x-collapse x-cloak>
-                <div id="comments-{{ post.id }}" class="mt-2 bg-slate-100 dark:bg-black/20 rounded-2xl overflow-hidden shadow-inner min-h-[50px]"></div>
-            </div>
         </div>
+    </div>
 
+    <div x-show="commentsOpen" 
+         x-collapse 
+         x-cloak 
+         class="mt-3 origin-top">
+        <div id="comments-{{ post.id }}" 
+             class="bg-black/5 dark:bg-white/5 rounded-[1.5rem] border border-white/5 p-2 min-h-[100px] shadow-inner custom-scrollbar overflow-hidden">
+             <div class="flex justify-center items-center py-8 opacity-50">
+                 <div class="animate-spin rounded-full h-5 w-5 border-2 border-brand border-t-transparent"></div>
+             </div>
+        </div>
     </div>
   </div>
 </article>

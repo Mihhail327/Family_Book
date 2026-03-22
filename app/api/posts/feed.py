@@ -28,6 +28,14 @@ async def index(request: Request, user_id: int = Depends(get_current_user), sess
         return RedirectResponse(url="/auth/login", status_code=303)
     user = session.get(User, user_id)
     
+    user = session.get(User, user_id)
+    
+    # Если юзер в куках есть, а в новой базе его нет (базу-то мы удалили!)
+    if not user:
+        response = RedirectResponse(url="/auth/login", status_code=303)
+        response.delete_cookie("user_session") # Чистим битую сессию
+        return response
+
     statement = (
         select(Post)
         .options(
@@ -39,7 +47,11 @@ async def index(request: Request, user_id: int = Depends(get_current_user), sess
         .order_by(col(Post.created_at).desc())
     )
     posts = session.exec(statement).all()
-    return templates.TemplateResponse(request, "index.html", {"user": user, "posts": posts})
+    return templates.TemplateResponse(
+    request=request, 
+    name="index.html", 
+    context={"user": user, "posts": posts}
+)
 
 @router.post("/posts/create")
 async def create_post(
@@ -124,9 +136,11 @@ async def get_post_detail(post_id: int, request: Request, user_id: int = Depends
         return RedirectResponse(url="/auth/login", status_code=303)
     
     can_edit = (post.author_id == user.id) or getattr(user, "role", "") == "admin"
-    return templates.TemplateResponse(request, "post_detail.html", {
-        "user": user, "post": post, "can_edit": can_edit 
-    })
+    return templates.TemplateResponse(
+    request=request, 
+    name="post_detail.html", 
+    context={"user": user, "post": post, "can_edit": can_edit}
+)
 
 @router.post("/posts/delete/{post_id}")
 async def delete_post(post_id: int, user_id: int = Depends(get_current_user), session: Session = Depends(get_session)):
@@ -159,4 +173,53 @@ async def delete_post(post_id: int, user_id: int = Depends(get_current_user), se
     session.commit()
     log_action(str(user_id), "POST_DELETE", f"Пост {post_id} стерт")
     flash(response, "Пост и все фотографии успешно удалены", "success")
+    return response
+
+@router.post("/posts/edit/{post_id}")
+async def edit_post(
+    request: Request, # Добавили request для работы flash
+    post_id: int, 
+    content: str = Form(...), 
+    user_id: int = Depends(get_current_user), # Используем user_id как в других роутерах
+    session: Session = Depends(get_session)
+):
+    # 1. Ищем пост и пользователя
+    post = session.get(Post, post_id)
+    user = session.get(User, user_id)
+    response = RedirectResponse(url="/", status_code=303)
+
+    if not post or not user:
+        flash(response, "История потерялась в архивах", "error")
+        return response
+
+    # 2. Проверка прав: автор или админ
+    if post.author_id != user_id and getattr(user, "role", "") != "admin":
+        flash(response, "Это не ваша история, чтобы её менять", "error")
+        return response
+
+    # 3. БОНУС: Твоя Triple-S защита для контента
+    clean_text = content.strip()
+    if len(clean_text) > 2000:
+        flash(response, "Слишком много слов (максимум 2000)", "error")
+        return response
+    
+    try:
+        # Прогоняем через твой валидатор безопасности
+        safe_content = validate_security_input(clean_text)
+        
+        # 4. Обновляем данные
+        post.content = safe_content
+        # post.updated_at = datetime.now(timezone.utc) # Если добавишь это поле в модель
+        
+        session.add(post)
+        session.commit()
+        
+        flash(response, "История успешно обновлена! ✨", "success")
+        log_action(str(user_id), "POST_EDIT", f"Пост {post_id} изменен")
+        
+    except Exception as e:
+        session.rollback()
+        log_error("POST_EDIT_ERR", str(e))
+        flash(response, "Не удалось сохранить правки", "error")
+
     return response
