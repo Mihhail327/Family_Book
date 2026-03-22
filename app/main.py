@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 
-from app.models import User
+#from app.models import User
 from app.routers import family
 from app.config import STATIC_DIR, settings
 from app.database import create_db_and_tables, engine
