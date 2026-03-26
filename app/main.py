@@ -26,23 +26,27 @@ print(f"❓ Файл реально существует? {os.path.exists(os.pat
 
 def fix_database_schema():
     print("🛠 Sentinel: Checking database schema...")
-    columns_to_add = [
-        ('is_guest', 'BOOLEAN DEFAULT FALSE'),
-        ('expires_at', 'TIMESTAMP WITH TIME ZONE'),
-        ('push_token', 'TEXT'),
-        ('last_seen', 'TIMESTAMP WITH TIME ZONE')
+    
+    # Список команд для разных таблиц
+    commands = [
+        # Для таблицы "user"
+        ('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS is_guest BOOLEAN DEFAULT FALSE;'),
+        ('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;'),
+        ('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS push_token TEXT;'),
+        ('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP WITH TIME ZONE;'),
+        
+        # 🆕 ДОБАВЛЯЕМ ДЛЯ КАРТИНОК:
+        ('ALTER TABLE "postimage" ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0;')
     ]
     
     with engine.connect() as conn:
-        for col_name, col_type in columns_to_add:
+        for cmd in commands:
             try:
-                # Пытаемся добавить колонку, если её нет
-                conn.execute(text(f'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS {col_name} {col_type};'))
+                conn.execute(text(cmd))
                 conn.commit()
-                print(f"✅ Column {col_name} checked/added.")
+                print(f"✅ Executed: {cmd[:40]}...")
             except Exception as e:
-                print(f"⚠️ Column {col_name} skip: {e}")
-
+                print(f"⚠️ Skip command: {e}")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Управление жизненным циклом приложения v3.0"""
