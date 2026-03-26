@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
+from sqlalchemy import text
 
 #from app.models import User
 from app.routers import family
@@ -23,11 +24,31 @@ from app.services.notifier import bot_alert
 print(f"🔍 Ищу файл тут: {os.path.join(str(STATIC_DIR), 'app.js')}")
 print(f"❓ Файл реально существует? {os.path.exists(os.path.join(str(STATIC_DIR), 'app.js'))}")
 
+def fix_database_schema():
+    print("🛠 Sentinel: Checking database schema...")
+    columns_to_add = [
+        ('is_guest', 'BOOLEAN DEFAULT FALSE'),
+        ('expires_at', 'TIMESTAMP WITH TIME ZONE'),
+        ('push_token', 'TEXT'),
+        ('last_seen', 'TIMESTAMP WITH TIME ZONE')
+    ]
+    
+    with engine.connect() as conn:
+        for col_name, col_type in columns_to_add:
+            try:
+                # Пытаемся добавить колонку, если её нет
+                conn.execute(text(f'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS {col_name} {col_type};'))
+                conn.commit()
+                print(f"✅ Column {col_name} checked/added.")
+            except Exception as e:
+                print(f"⚠️ Column {col_name} skip: {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Управление жизненным циклом приложения v2.0"""
+    """Управление жизненным циклом приложения v3.0"""
     try:
         print(f"\n--- 🛠 СТАРТ FAMILY_BOOK {settings.VERSION} ---")
+        fix_database_schema()
         create_db_and_tables()
         
         # Запускаем метлу при старте сервера
