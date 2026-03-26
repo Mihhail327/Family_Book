@@ -53,7 +53,7 @@ def create_db_and_tables():
                     log_action("SYSTEM", "DB_UPDATE", "Пароль администратора обновлен из настроек")
 
             session.commit()
-            print("--- ✅ База v2.0 готова к работе ---")
+            print("--- ✅ База v3.0 готова к работе ---")
             
         except Exception as e:
             session.rollback()

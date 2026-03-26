@@ -30,12 +30,25 @@
         <h1 class="text-3xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">
             {{ target_user.display_name }}
         </h1>
-        <div class="flex items-center justify-center space-x-2 mb-8">
-            <span class="text-brand font-bold text-sm tracking-wide">@{{ target_user.username }}</span>
-            {% if target_user.is_admin %}
-                <span class="bg-brand/10 text-brand text-[9px] font-black px-2 py-0.5 rounded-full border border-brand/20 uppercase tracking-tighter animate-pulse">Смотритель 🛠️</span>
-            {% endif %}
-        </div>
+        <div class="flex items-center justify-center space-x-3 mb-8">
+    <span class="text-brand font-black text-sm tracking-widest">@{{ target_user.username }}</span>
+    
+    {% if target_user.role == "admin" %}
+        <span class="bg-brand/10 text-brand text-[9px] font-black px-3 py-1 rounded-full border border-brand/20 uppercase tracking-[0.2em] animate-pulse flex items-center gap-1">
+            <span class="w-1 h-1 bg-brand rounded-full"></span>
+            Смотритель 🛠️
+        </span>
+    {% elif target_user.role == "guest" %}
+        <span class="bg-blue-500/10 text-blue-500 dark:text-blue-400 text-[9px] font-black px-3 py-1 rounded-full border border-blue-500/20 uppercase tracking-[0.2em] flex items-center gap-1">
+            <span class="w-1 h-1 bg-blue-500 rounded-full"></span>
+            Гость ⏳
+        </span>
+    {% else %}
+        <span class="bg-slate-500/10 text-slate-500 dark:text-slate-400 text-[9px] font-black px-3 py-1 rounded-full border border-slate-500/20 uppercase tracking-[0.2em]">
+            Семья 🏡
+        </span>
+    {% endif %}
+</div>
 
         {% if target_user.id == user.id %}
         <div class="flex justify-center">
@@ -48,13 +61,15 @@
     </div>
 
     <div class="space-y-8">
-        <div class="flex items-center justify-between px-6 mb-2">
-            <h3 class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400 font-bold">Архив историй</h3>
-            <div class="flex items-center space-x-2">
-                <span class="text-brand font-black text-xl leading-none">{{ posts|length }}</span>
-                <span class="text-[9px] font-bold uppercase text-slate-500 tracking-wider">Публикаций</span>
-            </div>
-        </div>
+        <div class="flex items-center justify-between px-6 mb-2 group/archive">
+    <h3 class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400 group-hover/archive:text-brand transition-colors duration-300">
+        Архив историй
+    </h3>
+    <div class="flex items-center space-x-2 bg-black/5 dark:bg-white/5 px-3 py-1 rounded-full border border-transparent group-hover/archive:border-brand/20 transition-all">
+        <span class="text-brand font-black text-xl leading-none">{{ posts|length }}</span>
+        <span class="text-[9px] font-bold uppercase text-slate-500 tracking-wider">Публикаций</span>
+    </div>
+</div>
         
         {% if posts %}
             <div class="flex flex-col gap-6 w-full">

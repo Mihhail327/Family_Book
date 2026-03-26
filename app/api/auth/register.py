@@ -1,11 +1,11 @@
 import uuid
-import shutil
+
 from pathlib import Path
 from fastapi import APIRouter, Depends, Form, Request, HTTPException, UploadFile, File
 from fastapi.responses import RedirectResponse
-from sqlmodel import Session, select
+from sqlmodel import Session
 
-from app.logger import log_error
+from app.logger import log_action, log_error
 from app.models import User
 from app.database import get_session
 from app.security import hash_password
@@ -27,21 +27,31 @@ async def register_page(request: Request, token: str):
         "request": request, 
         "token": token
     })
+    
 
 # --- ОБРАБОТКА РЕГИСТРАЦИИ (POST) ---
 @router.post("/register/{token}")
 async def register(
+    request: Request,
     token: str,
     display_name: str = Form(...),
+    confirm_email_address: str = Form(None), # 🍯 Ловушка здесь!
     avatar: UploadFile = File(None),
     session: Session = Depends(get_session)
 ):
-    # 1. Проверка безопасности
+    # --- ЗАЩИТА SENTINEL ---
+    # 1. Проверка Honeypot
+    if confirm_email_address: 
+        log_action(None, "SECURITY", f"Honeypot triggered from IP: {request.client.host}") # type: ignore
+        return RedirectResponse("/", status_code=303) 
+
+    # 2. Проверка токена
     if token != settings.REGISTRATION_TOKEN:
         raise HTTPException(status_code=403)
 
+    # --- ЛОГИКА РЕГИСТРАЦИИ ---
     name = display_name.strip()
-    res_error = RedirectResponse(f"/register/{token}", status_code=303)
+    res_error = RedirectResponse(f"/auth/register/{token}", status_code=303)
 
     if len(name) < 2:
         flash(res_error, "Имя слишком короткое", "error")

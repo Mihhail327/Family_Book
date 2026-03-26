@@ -2,7 +2,7 @@
   "name": "FamilyBook",
   "short_name": "FamilyBook",
   "description": "Наше уютное семейное пространство",
-  "id": "familybook-v1",
+  "id": "familybook-v3",
   "scope": "/",
   "start_url": "/",
   "display": "standalone",

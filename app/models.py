@@ -10,7 +10,7 @@ class PostLike(SQLModel, table=True):
     Промежуточная таблица для связи Many-to-Many между User и Post.
     """
     user_id: int = Field(foreign_key="user.id", primary_key=True)
-    post_id: int = Field(foreign_key="post.id", primary_key=True)
+    post_id: int = Field(foreign_key="post.id", ondelete="CASCADE", index=True, primary_key=True)
     # ✅ ИСПРАВЛЕНО: Тип реакции теперь живет здесь
     reaction_type: str = Field(default="❤️")
 
@@ -47,6 +47,7 @@ class User(SQLModel, table=True):
 
 # --- 3. МОДЕЛЬ ПОСТА ---
 class Post(SQLModel, table=True):
+    model_config = {"extra": "allow"}
     id: Optional[int] = Field(default=None, primary_key=True)
     content: Optional[str] = Field(default=None)
     
@@ -85,12 +86,14 @@ class PostImage(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     url: str 
     # ✅ ИСПРАВЛЕНО: Убраны ошибочные поля user_id и reaction_type
-    post_id: int = Field(foreign_key="post.id", ondelete="CASCADE")
+    post_id: int = Field(foreign_key="post.id", ondelete="CASCADE", index=True)
 
     post: Optional["Post"] = Relationship(
         back_populates="images",
         sa_relationship_kwargs={"passive_deletes": True} 
     )
+
+    position: int = Field(default=0)
 
 # --- 5. МОДЕЛЬ КОММЕНТАРИЕВ ---
 class Comment(SQLModel, table=True):
@@ -98,7 +101,7 @@ class Comment(SQLModel, table=True):
     content: str = Field(min_length=1)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    post_id: int = Field(foreign_key="post.id", ondelete="CASCADE")
+    post_id: int = Field(foreign_key="post.id", ondelete="CASCADE", index=True)
     author_id: int = Field(foreign_key="user.id")
 
     post: Optional["Post"] = Relationship(
@@ -148,3 +151,4 @@ class Event(SQLModel, table=True):
     event_date: date 
     event_type: EventType = Field(default=EventType.OTHER)
     user_id: int = Field(foreign_key="user.id")
+    creator: Optional["User"] = Relationship()

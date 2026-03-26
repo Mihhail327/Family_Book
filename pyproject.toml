@@ -1,7 +1,7 @@
 [project]
 name = "family-book"
-version = "2.0.0"
-description = "FamilyBook 2.0 - Private Family Social Network with PWA and Guest Sandbox"
+version = "3.0.0"
+description = "FamilyBook 3.0 - Private Family Social Network with PWA and Guest Sandbox"
 authors = [
     {name = "Mihhail Karasjov", email = "114910034+Mihhail327@users.noreply.github.com"}
 ]

@@ -15,45 +15,52 @@ class ReactionRequest(BaseModel):
 @router.post("/posts/{post_id}/like")
 async def toggle_like(
     post_id: int, 
-    payload: ReactionRequest, # 🟢 Ловим JSON из тела запроса
+    payload: ReactionRequest, 
     user_id: int = Depends(get_current_user), 
     session: Session = Depends(get_session)
 ):
-    # Раз это фоновый JS-запрос, отдаем 401 ошибку вместо редиректа
     if not user_id: 
         raise HTTPException(status_code=401, detail="Необходимо авторизоваться")
     
-    existing = session.exec(
-        select(PostLike).where(PostLike.user_id == user_id, PostLike.post_id == post_id)
-    ).first()
+    # 1. Ищем существующую запись
+    statement = select(PostLike).where(
+        PostLike.user_id == user_id, 
+        PostLike.post_id == post_id
+    )
+    existing = session.exec(statement).first()
+    
+    action = "liked"
     
     if existing:
         if existing.reaction_type == payload.reaction:
-            # Юзер кликнул на тот же эмодзи -> удаляем лайк
+            # Если кликнули по той же реакции — удаляем (дизлайк)
             session.delete(existing)
             action = "unliked"
         else:
-            # Юзер выбрал другой эмодзи -> обновляем
+            # Если кликнули по другой реакции — обновляем тип
             existing.reaction_type = payload.reaction
             session.add(existing)
             action = "updated"
     else:
-        # Новая реакция
-        new_like = PostLike(user_id=user_id, post_id=post_id, reaction_type=payload.reaction)
+        # Создаем новый лайк
+        new_like = PostLike(
+            user_id=user_id, 
+            post_id=post_id, 
+            reaction_type=payload.reaction
+        )
         session.add(new_like)
-        action = "liked"
-        
+
     session.commit()
-    
-    # Считаем актуальное количество реакций для этого поста
+
+    # 2. Считаем количество СВЕЖИМ запросом
     likes_count = session.exec(
         select(func.count()).select_from(PostLike).where(PostLike.post_id == post_id)
     ).one()
     
-    # Возвращаем JSON, чтобы app.js мог мгновенно обновить UI
     return {
         "status": action, 
-        "likes_count": likes_count
+        "likes_count": likes_count,
+        "reaction": payload.reaction if action != "unliked" else "❤️"
     }
 
 @router.get("/api/posts/{post_id}/likers")

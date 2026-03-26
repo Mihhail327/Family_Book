@@ -62,27 +62,41 @@ def decode_jwt_token(token: str) -> Optional[dict]:
 def get_current_user(request: Request) -> Optional[int]:
     """
     Универсальное извлечение ID пользователя:
-    1. Сначала ищем JWT в заголовке Authorization (Access Token)
-    2. Если нет - ищем подписанную сессию в куках
+    1. Ищем JWT в куках (access_token) - для обычных переходов и HTMX
+    2. Ищем JWT в заголовке Authorization (для API/PWA)
+    3. Ищем подписанную сессию (для старых пользователей)
     """
-    # --- 1. Пытаемся достать JWT (Access Token) ---
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
+    # --- 1. Пытаемся достать JWT из КУК (самый приоритетный сейчас) ---
+    token = request.cookies.get("access_token")
+    
+    # --- 2. Если в куках нет, смотрим заголовок Authorization ---
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+
+    # Если токен найден (неважно где), декодируем
+    if token:
         payload = decode_jwt_token(token)
         if payload and "sub" in payload:
-            return int(payload["sub"])
+            try:
+                return int(payload["sub"])
+            except (ValueError, TypeError):
+                pass
 
-    # --- 2. Если JWT нет, ищем подписанную куку (Session) ---
+    # --- 3. Если JWT нет совсем, ищем старую подписанную куку (Session) ---
     session_token = request.cookies.get("user_session")
-    if not session_token:
-        return None
+    if session_token:
+        try:
+            # max_age=1209600 (14 дней)
+            unsigned_data = signer.unsign(session_token, max_age=1209600)
+            # Приводим к строке, если это байты
+            user_id_str = unsigned_data.decode('utf-8') if hasattr(unsigned_data, 'decode') else unsigned_data
+            return int(user_id_str)
+        except Exception:
+            return None
     
-    try:
-        unsigned_data = signer.unsign(session_token, max_age=1209600)
-        return int(unsigned_data.decode('utf-8') if isinstance(unsigned_data, bytes) else unsigned_data)
-    except Exception:
-        return None
+    return None
     
 def create_session_token(user_id: int) -> str:
     """

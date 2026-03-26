@@ -36,7 +36,20 @@
                     class="w-10 h-10 flex items-center justify-center rounded-full bg-black/5 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all hover:bg-black/10 dark:hover:bg-white/10 haptic-btn">✕</button>
         </div>
         
-        <form action="/posts/create" method="post" enctype="multipart/form-data">
+        <form 
+    hx-post="/posts/create" 
+    hx-target="#post-container" 
+    hx-swap="afterbegin"
+    hx-encoding="multipart/form-data"
+    /* Добавили удаление #empty-state, если он есть */
+    @htmx:after-request="if($event.detail.successful) { 
+        createPostModalOpen = false; 
+        postPreviews = []; 
+        $el.reset(); 
+        const emptyState = document.getElementById('empty-state');
+        if(emptyState) emptyState.remove(); 
+    }"
+>
     <textarea name="content" rows="4" maxlength="2000" required
         class="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:ring-2 focus:ring-brand/50 outline-none resize-none mb-6 transition-all text-lg font-medium" 
         placeholder="Что происходит в семье прямо сейчас?"></textarea>
@@ -53,39 +66,66 @@
         </template>
     </div>
 
-    <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-3">
-            <label class="cursor-pointer bg-slate-100 dark:bg-white/5 p-4 rounded-2xl hover:bg-slate-200 dark:hover:bg-white/10 transition-all active:scale-90 flex items-center justify-center border border-slate-200 dark:border-white/10 group shadow-sm dark:shadow-lg haptic-btn">
-                <span class="text-2xl group-hover:scale-110 transition-transform">📸</span>
-                
-                <input type="file" name="files" id="post-file-input" multiple accept="image/*" class="hidden"
-                       @change="
-                           postPreviews = [];
-                           Array.from($event.target.files).forEach(file => {
-                               const reader = new FileReader();
-                               reader.onload = (e) => { postPreviews.push(e.target.result); };
-                               reader.readAsDataURL(file);
-                           });
-                       ">
-            </label>
-        
-                    <input type="hidden" name="is_gift" :value="isGift">
-                    <button type="button" 
-                            @click="toggleGift()"
-                            :class="isGift ? 'border-amber-500/50 bg-amber-500/10' : 'border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-white/5'"
-                            class="px-5 py-4 rounded-2xl hover:bg-slate-200 dark:hover:bg-white/10 transition-all border flex items-center space-x-3 active:scale-95 group shadow-sm dark:shadow-lg haptic-btn">
-                        <span x-text="isGift ? '✨' : '🎁'" class="text-xl transition-transform group-hover:rotate-12"></span>
-                        <span x-text="isGift ? 'СЮРПРИЗ ДЛЯ ВСЕХ!' : 'Обычный пост'"
-                              :class="isGift ? 'text-amber-500 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'"
-                              class="text-[10px] font-black uppercase tracking-widest transition-colors"></span>
-                    </button>
+    <div class="space-y-4 mt-6">
+        <div class="grid grid-cols-2 gap-3">
+            
+            <label class="cursor-pointer bg-slate-100 dark:bg-white/5 p-4 rounded-2xl hover:bg-slate-200 dark:hover:bg-white/10 transition-all active:scale-95 flex items-center border border-slate-200 dark:border-white/10 group shadow-sm relative haptic-btn min-h-[72px]">
+                <div class="flex items-center space-x-3">
+                    <span class="text-2xl group-hover:scale-110 transition-transform flex-shrink-0">📸</span>
+                    <div class="flex flex-col text-left min-w-0">
+                        <span class="text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-colors"
+                              :class="postPreviews.length >= 10 ? 'text-rose-500' : 'text-slate-900 dark:text-white'">
+                            Медиа
+                        </span>
+                        
+                        <span class="text-[8px] sm:text-[9px] font-extrabold tracking-wide leading-tight transition-all"
+                            :class="postPreviews.length >= 10 
+                                    ? 'text-rose-400 opacity-100' 
+                                    : (postPreviews.length > 0 ? 'text-brand opacity-100' : 'text-slate-400 dark:text-slate-300 opacity-90')"
+                            x-text="postPreviews.length >= 10 ? 'ЛИМИТ ИСЧЕРПАН' : 'МАКСИМУМ 10 ФОТО'">
+                        </span>
+                    </div>
                 </div>
 
-                <button type="submit" 
-                        class="bg-gradient-to-tr from-brand to-yellow-500 text-white px-8 py-4 rounded-2xl font-black hover:scale-[1.02] active:scale-[0.96] transition-all shadow-lg shadow-brand/30 uppercase text-xs tracking-widest haptic-btn">
-                    Опубликовать
+                <div x-show="postPreviews.length > 0"
+                     class="absolute -top-2 -right-2 px-2 py-0.5 rounded-lg text-[9px] font-black border-2 border-white dark:border-slate-900 shadow-sm transition-colors"
+                     :class="postPreviews.length >= 10 ? 'bg-rose-500 text-white animate-pulse' : 'bg-brand text-black'">
+                    <span x-text="postPreviews.length"></span>/10
+                </div>
+
+                <input type="file" name="files" id="post-file-input" multiple accept="image/*" class="hidden"
+                       @change="
+                            const rawFiles = Array.from($event.target.files);
+                            if (rawFiles.length > 10) alert('Упс! Только 10 фото.');
+                            const selectedFiles = rawFiles.slice(0, 10);
+                            postPreviews = []; 
+                            selectedFiles.forEach(file => {
+                                const reader = new FileReader();
+                                reader.onload = (e) => { postPreviews = [...postPreviews, e.target.result]; };
+                                reader.readAsDataURL(file);
+                            });
+                       ">
+            </label>
+
+            <div class="relative">
+                <input type="hidden" name="is_gift" :value="isGift">
+                <button type="button" 
+                        @click="toggleGift()"
+                        :class="isGift ? 'border-brand/50 bg-brand/10' : 'border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-white/5'"
+                        class="w-full h-full px-5 py-4 rounded-2xl hover:bg-slate-200 dark:hover:bg-white/10 transition-all border flex items-center space-x-3 active:scale-95 group shadow-sm haptic-btn min-h-[72px]">
+                    <span x-text="isGift ? '✨' : '🎁'" class="text-xl transition-transform group-hover:rotate-12"></span>
+                    <span x-text="isGift ? 'СЮРПРИЗ' : 'ОБЫЧНЫЙ'"
+                          :class="isGift ? 'text-brand' : 'text-slate-900 dark:text-white'"
+                          class="text-[10px] font-black uppercase tracking-widest"></span>
                 </button>
             </div>
-        </form>
+        </div>
+
+        <button type="submit" 
+                class="w-full bg-gradient-to-tr from-brand to-yellow-600 text-white py-5 rounded-2xl font-black hover:scale-[1.01] active:scale-[0.96] transition-all shadow-lg shadow-brand/20 uppercase text-xs tracking-[0.2em] haptic-btn">
+            Опубликовать историю
+        </button>
+    </div>
+</form>
     </div>
 </div>

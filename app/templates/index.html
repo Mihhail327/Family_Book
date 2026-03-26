@@ -7,32 +7,46 @@
         
         {% include 'includes/create_post_btn.html' %}
 
-        {% if posts %}
-            <div class="flex flex-col gap-6 w-full mt-8" id="post-container">
-                {% for post in posts %}
-                    <div class="w-full">
-                        {% include 'includes/post_card.html' %}
-                    </div>
-                {% endfor %}
+        <div class="flex flex-col gap-6 w-full mt-8" id="post-container">
+    {% if posts %}
+        {% for post in posts %}
+            <div class="w-full">
+                {% include 'includes/post_card.html' %}
             </div>
-        {% else %}
-            <div class="flex flex-col items-center justify-center py-32 w-full animate-in fade-in zoom-in duration-1000">
+        {% endfor %}
+    {% else %}
+        <div id="empty-state" class="glass-card flex flex-col items-center justify-center py-24 px-8 w-full rounded-[3rem] border border-dashed border-slate-300 dark:border-white/10 animate-in fade-in zoom-in duration-1000 shadow-inner bg-black/5 dark:bg-white/5">
+            
+            {% if user.is_guest %}
+                <div class="text-7xl mb-6 drop-shadow-2xl animate-pulse">🏝️</div>
+                <h2 class="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-3 text-center">
+                    Добро пожаловать в песочницу!
+                </h2>
+                <p class="text-slate-600 dark:text-slate-400 font-medium text-center max-w-md leading-relaxed">
+                    Здесь вы можете безопасно протестировать функции <span class="text-brand font-black">Family_Book</span>. 
+                    Напишите свою первую историю — она будет видна только другим гостям и удалится автоматически.
+                </p>
+            {% else %}
                 <div class="text-7xl mb-6 opacity-40 drop-shadow-2xl">🏜️</div>
-                <h2 class="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-2 text-center">
+                <h2 class="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-3 text-center">
                     Семейная летопись пуста...
                 </h2>
-                <p class="text-slate-600 dark:text-slate-400 font-medium italic opacity-70 text-center px-4">
-                    Будьте первым, кто оставит след в истории вашей Семьи!
+                <p class="text-slate-600 dark:text-slate-400 font-medium italic opacity-70 text-center max-w-md">
+                    Будьте первым, кто оставит след в истории вашей Семьи! Ваши посты надежно скрыты от посторонних глаз.
                 </p>
-                
-                <div class="mt-6 text-brand animate-bounce">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            {% endif %}
+            
+            <div class="mt-10 flex flex-col items-center gap-4">
+                <div class="text-brand animate-bounce">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
                     </svg>
                 </div>
+                <span class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500">Нажми выше, чтобы начать</span>
             </div>
-        {% endif %}
-    </div>
+        </div>
+    {% endif %}
+</div></div>
 {% endblock %}
 
 {% block modals %}

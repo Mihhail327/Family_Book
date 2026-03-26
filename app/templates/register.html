@@ -7,8 +7,8 @@
     <div class="glass-card backdrop-blur-xl p-10 rounded-[3rem] border border-white/10 shadow-2xl w-full max-w-md animate-in fade-in zoom-in duration-500">
         
         <div class="text-center mb-10">
-            <h1 class="text-3xl font-black text-white tracking-tighter uppercase leading-none">Присоединиться</h1>
-            <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mt-4 opacity-70">Добро пожаловать в семейную летопись</p>
+            <h1 id="page-title" class="text-3xl font-black text-white tracking-tighter uppercase leading-none">Присоединиться</h1>
+            <p id="page-subtitle" class="text-slate-400 text-xs font-bold uppercase tracking-widest mt-4 opacity-70">Добро пожаловать в семейную летопись</p>
         </div>
 
         {% if error %}
@@ -17,9 +17,13 @@
         </div>
         {% endif %}
 
-        <form action="/register/{{ token }}" method="post" enctype="multipart/form-data" class="space-y-8">
+        <form id="join-form" action="/auth/register/{{ token }}" method="post" enctype="multipart/form-data" class="space-y-8">
+
+            <div style="position: absolute; left: - 9999px; width: 1px; height: 1px; overflow: hidden;" aria-hidden="true">
+                <input type="text" name="confirm_email_address" tabindex="-1" autocomplete="off" placeholder="Ваш e-mail">
+            </div>
     
-    <div class="flex flex-col items-center">
+    <div id="avatar-section" class="flex flex-col items-center">
         <label class="relative cursor-pointer group">
             <div id="preview-container" class="w-28 h-28 rounded-full bg-white/5 border-2 border-dashed border-white/20 flex items-center justify-center overflow-hidden transition-all group-hover:border-blue-500 group-hover:bg-white/10 shadow-inner">
                 <span id="preview-placeholder" class="text-4xl group-hover:scale-110 transition-transform">👤</span>
@@ -37,18 +41,19 @@
     </div>
 
     <div class="space-y-2">
-    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4">Как вас зовут?</label>
-    <input type="text" name="display_name" placeholder="напр. Дядя Ваня" required maxlength="25" minlength="2"
-        class="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white placeholder-slate-600 focus:ring-2 focus:ring-blue-500 outline-none transition-all hover:bg-white/10">
-</div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4">Как вас зовут?</label>
+        <input type="text" name="display_name" placeholder="напр. Дядя Ваня" required maxlength="25" minlength="2"
+            class="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white placeholder-slate-600 focus:ring-2 focus:ring-blue-500 outline-none transition-all hover:bg-white/10">
+    </div>
 
-<button type="submit" 
-    class="w-full bg-blue-600 text-white py-5 rounded-2xl text-lg font-black hover:bg-blue-500 active:scale-[0.96] transition-all shadow-lg shadow-blue-500/30 uppercase tracking-tight haptic-btn">
-    Войти в Семью
-</button>
+    <button id="submit-btn" type="submit" 
+        class="w-full bg-blue-600 text-white py-5 rounded-2xl text-lg font-black hover:bg-blue-500 active:scale-[0.96] transition-all shadow-lg shadow-blue-500/30 uppercase tracking-tight haptic-btn">
+        Войти в Семью
+    </button>
 </form>
     </div>
 </div>
+
 <script>
 function handlePreview(event) {
     const input = event.target;
@@ -68,5 +73,29 @@ function handlePreview(event) {
         reader.readAsDataURL(input.files[0]);
     }
 }
+
+// 🟢 НОВАЯ ЛОГИКА ДЛЯ ПЕСОЧНИЦЫ
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isGuest = urlParams.get('is_guest') === 'true';
+
+    if (isGuest) {
+        // Меняем путь отправки на гостевой роут
+        document.getElementById('join-form').action = '/auth/guest';
+        
+        // Меняем тексты
+        document.getElementById('page-title').innerText = 'Песочница';
+        document.getElementById('page-subtitle').innerText = 'Гостевой демо-доступ на 30 минут';
+        
+        // Скрываем загрузку аватара (гостям дается дефолтный)
+        document.getElementById('avatar-section').style.display = 'none';
+        
+        // Перекрашиваем кнопку в гостевой (синий -> изумрудный)
+        const btn = document.getElementById('submit-btn');
+        btn.innerText = 'Войти как Гость';
+        btn.classList.remove('bg-blue-600', 'hover:bg-blue-500', 'shadow-blue-500/30');
+        btn.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'shadow-emerald-500/30');
+    }
+});
 </script>
 {% endblock %}

@@ -1,11 +1,11 @@
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import cast, List
-from sqlmodel import Session, select, col
+from sqlmodel import Session, select, col, delete
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
-from app.models import User, Post, PostImage
+from app.models import User, Post, PostImage, AuditLog
 from app.logger import log_action, log_error
 
 def cleanup_expired_guests(session: Session) -> int:
@@ -16,7 +16,7 @@ def cleanup_expired_guests(session: Session) -> int:
     statement = (
         select(User)
         .where(
-            User.is_guest == True, 
+            User.is_guest, 
             col(User.expires_at).is_not(None), 
             col(User.expires_at) < now
         )
@@ -64,3 +64,25 @@ def cleanup_expired_guests(session: Session) -> int:
 
     session.commit()
     return count
+
+
+def cleanup_old_logs(session: Session) -> int:
+    """Удаляет логи старше 30 дней, чтобы база не раздувалась."""
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    
+    try:
+        # Убедись, что поле с датой в модели AuditLog называется именно created_at!
+        # Если оно называется timestamp, замени AuditLog.created_at на AuditLog.timestamp
+        statement = delete(AuditLog).where(AuditLog.created_at < thirty_days_ago)  # type: ignore
+        result = session.exec(statement)
+        session.commit()
+        
+        deleted_count = result.rowcount
+        if deleted_count > 0:
+            log_action("SYSTEM_GC", "LOGS_CLEANUP", f"Удалено {deleted_count} старых записей логов")
+            
+        return deleted_count
+    except Exception as e:
+        session.rollback()
+        log_error("CLEANUP", f"Ошибка при удалении старых логов: {e}")
+        return 0

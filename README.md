@@ -1,61 +1,58 @@
-# 📸 FamilyBook (v1.3.1)
+# 🌳 FamilyBook v3.0 (Sentinel Edition)
 
-**FamilyBook** — приватная социальная экосистема для семьи. Это современное PWA-приложение, сочетающее в себе функции фотоархива, защищенной ленты событий и интерактивной площадки с уникальной механикой «постов-подарков».
+Семейная социальная сеть с усиленной защитой, системой уведомлений в Telegram и поддержкой PWA.
 
----
+## 🚀 Основные функции
+* **Family Feed:** Общая лента историй с поддержкой фото (до 10 шт) и реакций.
+* **Sentinel Security:** Защита от спам-ботов (Honeypot), XSS и SQL-инъекций.
+* **Telegram Bot:** Мгновенные уведомления администратору о подозрительной активности и системных событиях.
+* **PWA Ready:** Установка на смартфон, работа в офлайн-режиме и тактильная отдача (Vibration API).
+* **Admin Panel:** Полный контроль над пользователями и контентом.
 
-## 🚀 Технический стек
+## 🛠 Технологический стек
+* **Backend:** FastAPI, SQLModel (SQLAlchemy + Pydantic).
+* **Database:** PostgreSQL (Production) / SQLite (Dev).
+* **Frontend:** Jinja2 Templates, HTMX (для динамического обновления без перезагрузки).
+* **Security:** JWT Auth, Passlib (bcrypt), Sentinel Middleware.
+* **Deployment:** Render.com + Persistent Disk.
 
-* **Backend:** Python 3.13 + **FastAPI** (Async).
-* **Database:** **SQLModel** (SQLAlchemy 2.0) + SQLite (в процессе миграции на PostgreSQL).
-* **Media:** Автоматическая конвертация изображений в **WebP** (Pillow) для оптимизации трафика.
-* **Frontend:** Jinja2 + **Tailwind CSS** + JavaScript (Canvas-confetti).
-* **Infrastructure:** **Docker** + Render (PaaS).
-* **PWA:** Полная поддержка установки на смартфон, Service Workers, offline-режим.
+## ⚙️ Настройка окружения (Environment Variables)
 
----
+Для работы приложения необходимо создать файл `.env` (или прописать переменные в панели Render):
 
-## ✅ Реализованный функционал
+| Ключ | Описание |
+| :--- | :--- |
+| `DATABASE_URL` | Ссылка на БД (Postgres или SQLite) |
+| `SECRET_KEY` | Секретный код для генерации JWT-токенов |
+| `BOT_TOKEN` | Токен от @BotFather |
+| `ADMIN_CHAT_ID` | Ваш ID в Telegram для получения алертов |
+| `APP_MODE` | `dev` или `prod` |
+| `ENV` | `development` или `production` |
 
-* **Social Engine:** Полноценная лента, система лайков с визуальными эффектами и древовидные комментарии.
-* **Gift Logic:** Уникальная механика «распаковки» подарка с автоматическим запуском салюта (JS confetti).
-* **UI/UX:**
-    * Адаптивный дизайн (Mobile First).
-    * Dark/Light темы (с сохранением в localStorage).
-    * Система Flash-уведомлений со звуковым сопровождением.
-* **Security:** Сессионная авторизация на базе Secure Cookies с защитой подписи ключом.
+## 📦 Быстрый старт (Local Dev)
 
----
-
-## 📂 Структура проекта
-
-```plaintext
-FAMILY_BOOK/
-├── app/
-│   ├── api/          # Эндпоинты (auth, posts)
-│   ├── static/       # CSS (Tailwind), Icons (PWA), Uploads, Service Worker
-│   ├── templates/    # Шаблоны Jinja2 (компоненты и страницы)
-│   ├── main.py       # Точка входа FastAPI
-│   ├── models.py     # Схемы данных (SQLModel)
-│   └── database.py   # Инициализация Engine
-├── Dockerfile        # Конфигурация контейнера
-└── requirements.txt  # Зависимости проекта
-
-⚙️ Установка и запуск
-Локально (Test Mode):
-Клонируйте репозиторий:
+1. **Клонируйте репозиторий:**
+   ```bash
+   git clone [https://github.com/your-repo/family-book.git](https://github.com/your-repo/family-book.git)
+   cd family-book
+Установите зависимости (Poetry):
 
 Bash
-
-git clone [https://github.com/Mihhail327/Family_Book.git](https://github.com/Mihhail327/Family_Book.git)
-Установите зависимости и запустите:
+poetry install
+Запустите тесты (обязательно!):
 
 Bash
+poetry run pytest -v
+Запустите сервер:
 
-set APP_MODE=test && uvicorn app.main:app --reload
-Через Docker:
 Bash
+poetry run uvicorn app.main:app --reload
+🛡️ Безопасность (Sentinel)
+Система автоматически блокирует запросы, если:
 
-docker build -t family_book .
-docker run -p 8000:8000 --env-file .env.prod family_book
-Разработчик: Mihhail327 (2026)
+Заполнено скрытое поле confirm_email_address (Honeypot).
+
+Обнаружена попытка доступа к админ-панели без прав.
+
+Превышены лимиты загрузки файлов.
+Все инциденты мгновенно отправляются в Telegram администратору.

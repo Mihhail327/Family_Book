@@ -1,18 +1,27 @@
-/* static/css/main.css */
-
-/* 1. СИСТЕМНЫЕ СТИЛИ */
+/* --- 1. СИСТЕМНЫЕ И ГЛОБАЛЬНЫЕ СТИЛИ --- */
 [x-cloak] { display: none !important; }
 
-/* 2. АНИМАЦИИ УВЕДОМЛЕНИЙ */
-@keyframes progress {
-    from { width: 100%; }
-    to { width: 0%; }
-}
-.animate-progress {
-    animation: progress 4s linear forwards;
+.unselectable {
+    -webkit-touch-callout: none; /* Запрещает контекстное меню на iOS */
+    -webkit-user-select: none;   /* Запрещает выделение текста */
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    touch-action: manipulation;  /* Оптимизирует касания, убирая задержку */
 }
 
-/* 3. АДАПТИВНЫЙ ФОН (Мрамор) */
+input, select, textarea {
+    color-scheme: dark;
+}
+
+/* Исправляем читаемость select */
+select option {
+    background-color: #1e293b;
+    color: white;
+}
+
+/* --- 2. АДАПТИВНЫЙ ФОН И ЗОЛОТОЕ "ДЫХАНИЕ" --- */
 body {
     background-image: url("/static/images/backgrounds/bg-pc.jpg");
     background-size: cover;
@@ -31,132 +40,169 @@ body.dark {
     body.dark { background-image: url("/static/images/backgrounds/bg-mobile-dark.jpg"); }
 }
 
-/* 4. МАГИЯ ЗОЛОТОГО ДЫХАНИЯ (Overlay) */
 .gold-breathing-overlay {
     position: fixed;
     inset: 0;
+    z-index: 1;
     pointer-events: none;
-    z-index: 0;
-    background: radial-gradient(circle, transparent 20%, rgba(212, 175, 55, 0.4) 100%);
-    mix-blend-mode: color-dodge;
-    animation: gold-pulse 3.5s infinite alternate ease-in-out;
+    background: 
+        radial-gradient(circle at 20% 30%, rgba(212, 175, 55, 0.25) 0%, transparent 40%),
+        radial-gradient(circle at 80% 70%, rgba(212, 175, 55, 0.2) 0%, transparent 40%);
+    animation: gold-pulse 10s ease-in-out infinite alternate;
+    will-change: transform, opacity;
 }
 
-body:not(.dark) .gold-breathing-overlay {
-    background: radial-gradient(circle, transparent 20%, rgba(212, 175, 55, 0.2) 100%);
-    mix-blend-mode: overlay; 
+.relative.z-10 { z-index: 10 !important; }
+
+body:not(.dark) .gold-breathing-overlay { mix-blend-mode: overlay; }
+
+.dark .gold-breathing-overlay {
+    background: 
+        radial-gradient(circle at 25% 25%, rgba(212, 175, 55, 0.4) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(184, 134, 11, 0.3) 0%, transparent 50%);
+    mix-blend-mode: screen; 
 }
 
-@keyframes gold-pulse {
-    0% { opacity: 0.1; transform: scale(1); }
-    100% { opacity: 0.9; transform: scale(1.02); }
+/* --- 3. УНИВЕРСАЛЬНЫЕ КАСТОМНЫЕ СКРОЛЛБАРЫ --- */
+.custom-scrollbar::-webkit-scrollbar,
+.terminal-log::-webkit-scrollbar {
+    width: 5px;
+    height: 3px;
 }
 
-/* 5. МИКРО-ВЗАИМОДЕЙСТВИЯ (Ripple, Merge, Pop) */
-.animate-ripple {
-    position: absolute;
-    border-radius: 50%;
-    background: rgba(212, 175, 55, 0.4);
-    animation: ripple-out 0.6s ease-out forwards;
-    pointer-events: none;
-}
-
-@keyframes ripple-out {
-    0% { transform: scale(1); opacity: 0.5; }
-    100% { transform: scale(2.5); opacity: 0; }
-}
-
-.reaction-pop {
-    animation: reaction-spring 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-}
-
-@keyframes reaction-spring {
-    0% { transform: scale(0.5) translateY(10px); opacity: 0; }
-    100% { transform: scale(1) translateY(0); opacity: 1; }
-}
-
-.animate-merge {
-    animation: emoji-merge 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes emoji-merge {
-    0% { transform: scale(1.5); filter: brightness(1.5); }
-    50% { transform: scale(0.8); }
-    100% { transform: scale(1); filter: brightness(1); }
-}
-
-/* --- АНИМАЦИЯ ПРЕМИАЛЬНОГО ОТКРЫТИЯ (Gold Dissolve) --- */
-.animate-gift-dissolve {
-    /* Сочетаем растворение, увеличение и сильное размытие */
-    animation: gift-dissolve 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-@keyframes gift-dissolve {
-    0% { 
-        opacity: 1; 
-        transform: scale(1) translateY(0); 
-        filter: blur(0px) brightness(1);
-    }
-    20% {
-        /* Сначала легкая золотая вспышка */
-        opacity: 1;
-        filter: blur(2px) brightness(1.8);
-        transform: scale(1.02);
-    }
-    100% { 
-        /* Затем полное растворение в золотом тумане */
-        opacity: 0; 
-        transform: scale(1.15) translateY(-15px); 
-        filter: blur(25px) brightness(0.5);
-    }
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
+.custom-scrollbar::-webkit-scrollbar-track,
+.terminal-log::-webkit-scrollbar-track {
     background: transparent;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(212, 175, 55, 0.2);
+
+.custom-scrollbar::-webkit-scrollbar-thumb,
+.terminal-log::-webkit-scrollbar-thumb {
+    background: rgba(212, 175, 55, 0.25);
     border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(212, 175, 55, 0.5);
-}
-
-/* 7. ГЛОБАЛЬНЫЕ КЛАССЫ (Чистый CSS без @apply) */
-.glass-card {
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px); /* Для поддержки Safari */
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.dark .glass-card {
-    background: rgba(0, 0, 0, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-/* Эффект для HTMX удаления комментариев */
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.terminal-log::-webkit-scrollbar-thumb:hover {
+    background: rgba(212, 175, 55, 0.5);
+}
+
+/* --- 4. АНИМАЦИИ --- */
+@keyframes gold-pulse {
+    0% { opacity: 0.2; filter: blur(40px); transform: scale(1); }
+    50% { opacity: 0.7; filter: blur(20px); transform: scale(1.15); }
+    100% { opacity: 0.2; filter: blur(40px); transform: scale(1); }
+}
+
+@keyframes progress { from { width: 100%; } to { width: 0%; } }
+.animate-progress { animation: progress 4s linear forwards; }
+
+.reaction-pop { animation: reaction-spring 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+@keyframes gift-dissolve {
+    0% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px) brightness(1); }
+    20% { opacity: 1; filter: blur(2px) brightness(1.8); transform: scale(1.02); }
+    100% { opacity: 0; transform: scale(1.15) translateY(-15px); filter: blur(25px) brightness(0.5); }
+}
+.animate-gift-dissolve { animation: gift-dissolve 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+/* --- 5. КОМПОНЕНТЫ И СОСТОЯНИЯ --- */
+.glass-card {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .glass-card { background: rgba(0, 0, 0, 0.2); }
+
+.terminal-log {
+    font-family: 'Fira Code', monospace;
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+}
+
 .htmx-swapping {
     opacity: 0;
-    transform: scale(0.95) translateX(-20px);
-    transition: all 0.5s ease-out;
+    transform: scale(0.9) translateY(10px);
+    filter: blur(10px);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .calendar-day {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Делаем выпадающий список читаемым */
-select option {
-    background-color: #1e293b; /* slate-800 */
-    color: white;
+.drop-shadow-gold {
+    filter: drop-shadow(0 0 8px rgba(212, 175, 55, 0.6));
 }
 
-/* Для мобильных браузеров, чтобы они понимали, что мы в темной теме */
-input, select, textarea {
-    color-scheme: dark;
+@keyframes bell-shake {
+    0%, 100% { transform: rotate(0); }
+    15% { transform: rotate(20deg); }
+    30% { transform: rotate(-20deg); }
+    45% { transform: rotate(10deg); }
+    60% { transform: rotate(-10deg); }
+}
+
+.animate-bell {
+    display: inline-block;
+    animation: bell-shake 0.6s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+/* --- 6. ЭФФЕКТЫ ВЗАИМОДЕЙСТВИЯ (ЛАЙКИ) --- */
+
+/* Широкая волна на половину поста */
+@keyframes ripple-wide {
+    0% { 
+        transform: translate(-50%, -50%) scale(0); 
+        opacity: 0.8; 
+    }
+    100% { 
+        transform: translate(-50%, -50%) scale(1); 
+        opacity: 0; 
+    }
+}
+
+.animate-ripple-wide {
+    position: absolute;
+    /* Размер в 4 раза больше кнопки, чтобы накрыть пол-поста */
+    width: 400%; 
+    height: 600%; 
+    top: 50%;
+    left: 50%;
+    background: radial-gradient(circle, rgba(212, 175, 55, 0.5) 0%, transparent 70%);
+    animation: ripple-wide 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    pointer-events: none;
+    z-index: 0;
+    will-change: transform, opacity;
+}
+
+/* Разрешаем волне вылетать за пределы кнопок */
+.group\/likebtn, .like-container {
+    overflow: visible !important;
+}
+
+/* Анимация увеличения иконки при лайке */
+@keyframes icon-bounce {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.6) rotate(-15deg); }
+    60% { transform: scale(0.9) rotate(10deg); }
+    100% { transform: scale(1.2); }
+}
+
+.animate-icon-hit {
+    animation: icon-bounce 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Мягкое появление нового комментария */
+.comment-appear {
+    animation: comment-in 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+}
+
+@keyframes comment-in {
+    0% { opacity: 0; transform: translateY(10px) scale(0.95); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
 }

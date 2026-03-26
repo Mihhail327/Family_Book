@@ -11,18 +11,17 @@ from sqlmodel import Session
 #from app.models import User
 from app.routers import family
 from app.config import STATIC_DIR, settings
-from app.database import create_db_and_tables, engine
+from app.database import create_db_and_tables, engine, get_session
 from app.api import auth, posts
 from app.logger import log_action, log_error
-from app.services.cleanup import cleanup_expired_guests 
+from app.services.cleanup import cleanup_expired_guests, cleanup_old_logs
 from app.routers import admin
 from app.core.templates import templates
 from app.security import get_current_user
+from app.services.notifier import bot_alert
 
 print(f"🔍 Ищу файл тут: {os.path.join(str(STATIC_DIR), 'app.js')}")
 print(f"❓ Файл реально существует? {os.path.exists(os.path.join(str(STATIC_DIR), 'app.js'))}")
-
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -33,10 +32,16 @@ async def lifespan(app: FastAPI):
         
         # Запускаем метлу при старте сервера
         with Session(engine) as session:
+            # Чистим гостей
             deleted_count = cleanup_expired_guests(session)
             if deleted_count > 0:
                 print(f"🧹 Очистка: Удалено {deleted_count} просроченных гостей")
-        
+                
+            # 🟢 ДОБАВЛЕНО: Чистим старые логи (старше 30 дней)
+            deleted_logs = cleanup_old_logs(session)
+            if deleted_logs > 0:
+                print(f"🧹 Очистка: Удалено {deleted_logs} старых логов")
+                
         log_action("SYSTEM", "STARTUP", f"Сервер запущен v{settings.VERSION}")
     except Exception as e:
         log_error("STARTUP", str(e))
@@ -44,7 +49,54 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.PROJECT_NAME, version=settings.VERSION, lifespan=lifespan)
 
-# @app.middleware("http")
+# Middlewares
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# МОНИТОРИНГ(Alert)
+# --- ЕДИНЫЙ МОНИТОРИНГ (Sentinel + Alert Bot) ---
+@app.middleware("http")
+async def sentinel_middleware(request: Request, call_next):
+    # 1. Пропускаем статику и тесты
+    if request.url.path.startswith("/static") or request.url.path == "/debug-test":
+        return await call_next(request)
+
+    try:
+        # 2. Ждем ответ от системы
+        response = await call_next(request)
+        
+        # 3. Если это ошибка (400, 403) — логируем и шлем алерт
+        if response.status_code in [400, 403] and settings.ENV != "testing":
+            log_error("SENTINEL", f"Detected {response.status_code} on {request.method} {request.url.path}")
+            
+            await bot_alert.send_alert(
+                f"🛡️ **SECURITY TRIGGER**\n"
+                f"📍 Path: `{request.url.path}`\n"
+                f"🚫 Code: `{response.status_code}`\n"
+                f"🌐 IP: `{request.client.host}`", # type: ignore
+                level="SECURITY"
+            )
+        
+        return response
+
+    except Exception as exc:
+        # 4. Если сервер упал (500)
+        log_error("CRITICAL_FAIL", f"Error: {str(exc)} at {request.url.path}")
+        
+        if settings.ENV != "testing":
+            await bot_alert.send_alert(
+                f"🚨 **CRITICAL SERVER ERROR**\n"
+                f"❌ Error: `{str(exc)}`\n"
+                f"📍 Path: `{request.url.path}`",
+                level="CRITICAL"
+            )
+        raise exc
+        
 # async def update_last_seen_middleware(request: Request, call_next):
 #     if request.url.path.startswith("/static") or request.url.path == "/debug-test":
 #         return await call_next(request)
@@ -74,15 +126,6 @@ app = FastAPI(title=settings.PROJECT_NAME, version=settings.VERSION, lifespan=li
 #         print(f"❌ Middleware Online Error: {e}")
             
 #     return response
-
-# Middlewares
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # Монтируем статику
 if not STATIC_DIR.exists():
@@ -165,28 +208,31 @@ async def get_calendar_day_details(
 @app.delete("/calendar/events/{event_id}")
 async def delete_event(
     event_id: int, 
-    current_user_id: int = Depends(get_current_user) # Теперь это просто число
+    current_user_id: int = Depends(get_current_user),
+    session: Session = Depends(get_session) 
 ):
-    from app.models import Event
-    from sqlmodel import Session
+    from app.models import Event, User
     
-    with Session(engine) as session:
-        event = session.get(Event, event_id)
+    event = session.get(Event, event_id)
+    user = session.get(User, current_user_id)
+    
+    if not event or not user:
+        return Response(status_code=404)
+
+    # ✅ РАЗРЕШАЕМ: если это мой ивент ИЛИ я админ
+    if event.user_id == current_user_id or user.role == "admin": 
+        session.delete(event)
+        session.commit()
+        return Response(status_code=200)
         
-        # Сравниваем user_id события с current_user_id напрямую!
-        if event and event.user_id == current_user_id: 
-            session.delete(event)
-            session.commit()
-            return Response(status_code=200)
-            
-        return Response(status_code=403) # Если пытаются удалить чужое событие
+    return Response(status_code=403)
     
 @app.post("/calendar/events/add")
 async def add_calendar_event(
     title: str = Form(...),
     event_date: str = Form(...),
     event_type: str = Form(...), 
-    user_id=Depends(get_current_user) # Переименовали переменную для ясности, так как это ID
+    user_id=Depends(get_current_user) 
 ):
     from app.models import Event, EventType
     
@@ -213,6 +259,9 @@ app.include_router(posts.router, tags=["Posts"])
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(family.router, prefix="/auth", tags=["Family"])
 
+
+for route in app.routes:
+    print(f"Путь: {route.path} | Имя: {getattr(route, 'name', '???')}") # type: ignore
 # ✅ «Заплатка» для старых ссылок, чтобы убрать петлю
 @app.get("/login", include_in_schema=False)
 async def redirect_old_login():

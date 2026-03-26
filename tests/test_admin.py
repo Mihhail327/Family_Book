@@ -6,7 +6,7 @@ def test_admin_access_denied_for_regular_user(client: TestClient, normal_user_to
     """Обычный юзер не должен видеть список всех пользователей"""
     response = client.get("/admin/users", headers=normal_user_token_headers)
     assert response.status_code == 403
-    assert "недостаточно прав" in response.json()["detail"]
+    assert "Доступ запрещен" in response.json()["detail"]
 
 def test_admin_get_users_list(client: TestClient, admin_token_headers):
     """Админ успешно получает список пользователей"""

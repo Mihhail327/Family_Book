@@ -3,59 +3,66 @@
 {% block title %}Наша Семья | FamilyBook{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto pt-10 px-4 pb-32 relative z-10">
-    
-    <div class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div class="max-w-4xl mx-auto pt-10 px-4 pb-32 relative z-10"> <div class="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-            <h1 class="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
+            <h1 class="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-none">
                 Наша <span class="text-brand text-5xl">Семья</span>
             </h1>
             <p class="text-slate-500 dark:text-slate-400 font-medium italic mt-2">Все свои, все рядом. 🏠</p>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="space-y-6"> 
         {% for member in users %}
-            {# Считаем онлайн, если активность была меньше 5 минут назад #}
+            {# Считаем онлайн #}
             {% set is_online = (now - member.last_seen.replace(tzinfo=now.tzinfo)).total_seconds() < 300 if member.last_seen else False %}
             
             <a href="/auth/profile/{{ member.username }}" 
-               class="glass-card bg-white/30 dark:bg-slate-900/40 backdrop-blur-md rounded-[2.5rem] p-6 border border-slate-200 dark:border-white/10 shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 group relative overflow-hidden">
+               class="glass-card bg-white/30 dark:bg-slate-900/40 backdrop-blur-md rounded-[2.5rem] p-6 md:p-8 border border-slate-200 dark:border-white/10 shadow-xl hover:shadow-2xl hover:scale-[1.01] transition-all duration-300 group relative overflow-hidden flex items-center gap-6 md:gap-10 w-full">
                 
-                <div class="absolute inset-0 bg-gradient-to-br from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div class="relative shrink-0">
+                    <img src="{{ member.avatar_url or '/static/default_avatar.png' }}" 
+                         class="w-20 h-20 md:w-24 md:h-24 rounded-[1.5rem] md:rounded-[2rem] object-cover border-2 border-white dark:border-white/5 shadow-2xl group-hover:border-brand transition-all duration-500">
+                    
+                    {% if is_online %}
+                        <div class="absolute -bottom-1 -right-1 flex h-6 w-6 md:h-8 md:w-8 items-center justify-center bg-white dark:bg-slate-900 rounded-full shadow-xl">
+                            <span class="relative flex h-3 w-3 md:h-4 md:w-4">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-full w-full bg-emerald-500"></span>
+                            </span>
+                        </div>
+                    {% endif %}
+                </div>
 
-                <div class="flex items-center gap-5 relative z-10">
-                    <div class="relative shrink-0">
-                        <img src="{{ member.avatar_url or '/static/default_avatar.png' }}" 
-                             class="w-20 h-20 rounded-[1.5rem] object-cover border-2 border-white dark:border-white/5 shadow-lg group-hover:border-brand transition-all duration-500">
-                        
-                        {% if is_online %}
-                            <div class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center bg-white dark:bg-slate-900 rounded-full shadow-lg">
-                                <span class="relative flex h-3 w-3">
-                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                    <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                                </span>
+                <div class="flex-1 min-w-0"> 
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-10">
+                        <div>
+                            <h3 class="text-2xl md:text-3xl font-black text-slate-900 dark:text-white leading-tight group-hover:text-brand transition-colors truncate">
+                                {{ member.display_name or member.username }}
+                            </h3>
+                            <div class="flex items-center gap-2 mt-1">
+                                <p class="text-[10px] md:text-[12px] text-brand font-black uppercase tracking-widest">@{{ member.username }}</p>
+                                <div class="h-1 w-1 bg-slate-400 rounded-full opacity-50"></div>
+                                <span class="text-[10px] md:text-[11px] text-slate-500 font-bold uppercase tracking-tighter">Family Member</span>
                             </div>
-                        {% endif %}
-                    </div>
+                        </div>
 
-                    <div class="flex-1 overflow-hidden">
-                        <h3 class="text-lg font-black text-slate-900 dark:text-white truncate leading-tight group-hover:text-brand transition-colors">
-                            {{ member.display_name }}
-                        </h3>
-                        <p class="text-[10px] text-brand font-bold uppercase tracking-widest mt-1">@{{ member.username }}</p>
-                        
-                        <div class="mt-3">
+                        <div class="md:text-right shrink-0 border-t md:border-t-0 border-slate-900/5 dark:border-white/5 pt-2 md:pt-0">
                             {% if is_online %}
-                                <span class="text-[9px] font-black uppercase text-emerald-500 tracking-[0.2em] animate-pulse">Online</span>
+                                <span class="text-[10px] md:text-[11px] font-black uppercase text-emerald-500 tracking-[0.2em] animate-pulse">Online Now</span>
                             {% else %}
-                                <span class="text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-[0.2em]">
-                                    {{ member.last_seen.strftime('%H:%M • %d.%m') if member.last_seen else 'Давно не было' }}
-                                </span>
+                                <p class="text-[8px] uppercase text-slate-400 font-black tracking-widest opacity-60 leading-none mb-1">Last seen</p>
+                                <p class="text-[10px] md:text-[12px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-[0.1em] whitespace-nowrap">
+                                    {{ member.last_seen.strftime('%H:%M • %d.%m') if member.last_seen else 'Long time ago' }}
+                                </p>
                             {% endif %}
                         </div>
                     </div>
                 </div>
+
+                <svg class="hidden md:block w-8 h-8 text-brand opacity-0 -translate-x-10 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
             </a>
         {% endfor %}
     </div>

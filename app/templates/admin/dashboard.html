@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}Управление Семьей | FamilyBook{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-5xl mx-auto pt-6" x-data="adminPanel()" x-init="initAdmin()">
+    
+    <div class="mb-10 flex flex-col gap-8">
+    <div class="flex flex-col md:flex-row justify-between items-end gap-4">
+        <div>
+            <h1 class="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-none">
+                Пульт Управления
+            </h1>
+            <p class="text-brand text-xs font-black uppercase tracking-[0.3em] mt-3 ml-1">
+                Family_Book System Admin
+            </p>
+        </div>
+    </div>
+    
+    <div class="glass-card bg-black/10 dark:bg-white/5 p-2 rounded-[2rem] border border-white/10 shadow-2xl">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
+            <template x-for="t in ['users', 'links', 'broadcast', 'logs']">
+                <button @click="tab = t; if(t === 'logs') fetchLogs();" 
+                        :class="tab === t ? 'bg-white dark:bg-slate-800 shadow-xl text-brand translate-y-[-2px]' : 'text-slate-500 hover:text-slate-300'"
+                        class="relative px-4 py-4 rounded-[1.5rem] font-black text-[11px] uppercase tracking-widest transition-all duration-300 outline-none haptic-btn flex items-center justify-center gap-3 border border-transparent"
+                        :class="tab === t && 'border-white/20'">
+                    
+                    <span x-show="t === 'users'">👥</span>
+                    <span x-show="t === 'links'">🔑</span>
+                    <span x-show="t === 'broadcast'">📢</span>
+                    <span x-show="t === 'logs'">📜</span>
+
+                    <span x-text="t === 'users' ? 'Семья' : t === 'links' ? 'Инвайты' : t === 'broadcast' ? 'Рассылка' : 'Логи'"></span>
+                </button>
+            </template>
+        </div>
+    </div>
+</div>
+
+    <div x-show="tab === 'users'" x-transition x-cloak class="glass-card bg-white/30 dark:bg-slate-900/40 backdrop-blur-md rounded-[2.5rem] border border-slate-200 dark:border-white/10 overflow-hidden shadow-xl">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-black/5 dark:bg-white/5 text-[10px] uppercase tracking-widest text-slate-500 border-b border-slate-200 dark:border-white/10">
+                        <th class="p-4 font-black">Пользователь</th>
+                        <th class="p-4 font-black">Роль / Статус</th>
+                        <th class="p-4 font-black text-right">Управление</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="u in users" :key="u.id">
+                        <tr class="border-b border-slate-100 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors group">
+                            <td class="p-4 flex items-center gap-3">
+                                <div class="relative">
+                                    <img :src="u.avatar_url || '/static/default_avatar.png'" class="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10">
+                                    <div :class="isOnline(u.last_seen) ? 'bg-emerald-500' : 'bg-slate-400'" class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900"></div>
+                                </div>
+                                <div>
+                                    <p class="font-bold text-sm text-slate-900 dark:text-white" x-text="u.display_name || u.username"></p>
+                                    <p class="text-[10px] text-slate-500" x-text="'@' + u.username"></p>
+                                </div>
+                            </td>
+                            <td class="p-4">
+                                <span :class="u.role === 'admin' ? 'bg-brand/10 text-brand' : u.role === 'banned' ? 'bg-rose-500/10 text-rose-500' : 'bg-slate-100 dark:bg-white/10 text-slate-500'" 
+                                      class="px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border border-transparent" x-text="u.role"></span>
+                            </td>
+                            <td class="p-4 text-right space-x-1">
+                                <template x-if="u.id !== {{ user.id }}">
+                                    <div class="flex justify-end gap-2">
+                                        <button @click="toggleBlock(u)" class="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors" :title="u.role === 'banned' ? 'Разблокировать' : 'Заблокировать'">
+                                            <span x-text="u.role === 'banned' ? '🔓' : '🚫'"></span>
+                                        </button>
+                                        <button @click="deleteUser(u.id, u.username)" class="p-2 rounded-lg hover:bg-rose-500/10 text-rose-500 transition-colors">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </div>
+                                </template>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div x-show="tab === 'links'" x-transition x-cloak class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="glass-card bg-white/30 dark:bg-slate-900/40 p-8 rounded-[2.5rem] border border-brand/20 shadow-xl relative overflow-hidden group">
+            <div class="text-4xl mb-4 relative z-10">🏡</div>
+            <h3 class="text-xl font-black text-slate-800 dark:text-white mb-2">Семейный доступ</h3>
+            <p class="text-xs text-slate-500 font-medium mb-6">Постоянная ссылка для регистрации членов семьи.</p>
+            <button @click="generateLink('family')" class="w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-black uppercase text-[10px] tracking-widest hover:scale-[1.02] transition-all">Сгенерировать</button>
+            <div x-show="genLink" class="mt-4 p-3 bg-black/5 dark:bg-white/5 rounded-xl border border-dashed border-brand/30 break-all text-[10px] font-mono dark:text-brand" x-text="genLink" @click="copyToClipboard(genLink)"></div>
+        </div>
+
+        <div class="glass-card bg-white/30 dark:bg-slate-900/40 p-8 rounded-[2.5rem] border border-blue-500/20 shadow-xl relative overflow-hidden group">
+            <div class="text-4xl mb-4 relative z-10">⏳</div>
+            <h3 class="text-xl font-black text-slate-800 dark:text-white mb-2">Гостевой вход</h3>
+            <p class="text-xs text-slate-500 font-medium mb-6">Ссылка в песочницу. Автоудаление через 30 минут.</p>
+            <button @click="generateLink('guest')" class="w-full py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:scale-[1.02] transition-all">Создать пропуск</button>
+            <div x-show="genGuest" class="mt-4 p-3 bg-black/5 dark:bg-white/5 rounded-xl border border-dashed border-blue-500/30 break-all text-[10px] font-mono dark:text-blue-400" x-text="genGuest" @click="copyToClipboard(genGuest)"></div>
+        </div>
+    </div>
+
+    <div x-show="tab === 'logs'" x-transition x-cloak class="glass-card bg-[#0f172a] p-1 rounded-3xl border border-slate-700 shadow-2xl overflow-hidden">
+        <div class="bg-slate-900 px-4 py-3 flex items-center justify-between border-b border-slate-800">
+            <div class="flex gap-2"><div class="w-3 h-3 rounded-full bg-rose-500"></div><div class="w-3 h-3 rounded-full bg-yellow-500"></div><div class="w-3 h-3 rounded-full bg-emerald-500"></div></div>
+            <span class="text-[10px] font-mono text-slate-500 uppercase tracking-widest">system.log (30 days retention)</span>
+        </div>
+        <div class="h-[500px] overflow-y-auto p-4 font-mono text-[10px] space-y-1 custom-scrollbar">
+            <template x-for="log in logs" :key="log.id">
+                <div class="flex gap-3 hover:bg-white/5 p-1 rounded">
+                    <span class="text-slate-500" x-text="new Date(log.created_at).toLocaleString()"></span>
+                    <span class="font-bold uppercase" :class="log.action.includes('ERR') ? 'text-rose-400' : 'text-emerald-400'" x-text="`[${log.action}]`"></span>
+                    <span class="text-slate-300" x-text="log.details"></span>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <div x-show="tab === 'broadcast'" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0 translate-y-4"
+     x-transition:enter-end="opacity-100 translate-y-0"
+     class="glass-card bg-white/30 dark:bg-slate-900/40 backdrop-blur-md rounded-[2.5rem] border border-white/10 p-10 shadow-2xl max-w-2xl mx-auto"
+     x-cloak>
+    
+    <div class="flex items-center gap-4 mb-8">
+        <div class="w-12 h-12 bg-brand/20 rounded-2xl flex items-center justify-center text-2xl shadow-inner">📢</div>
+        <div>
+            <h2 class="font-black text-2xl text-slate-800 dark:text-white leading-none uppercase tracking-tighter">Массовое оповещение</h2>
+            <p class="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mt-2">Уведомление придет каждому члену семьи</p>
+        </div>
+    </div>
+
+    <form @submit.prevent="sendBroadcast" class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-2">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4">Заголовок</label>
+                <input type="text" x-model="broadcast.title" placeholder="Что случилось?" required
+                       class="w-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-brand transition-all font-bold">
+            </div>
+
+            <div class="space-y-2">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4">Тип события</label>
+                <select x-model="broadcast.category" 
+                        class="w-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-brand transition-all appearance-none cursor-pointer font-bold">
+                    <option value="info">🔵 Инфо (Обычное)</option>
+                    <option value="success">🟢 Радость (Успех)</option>
+                    <option value="warning">🟡 Важное (Предупреждение)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="space-y-2">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4">Текст сообщения</label>
+            <textarea x-model="broadcast.message" rows="4" placeholder="Введите текст сообщения для всех участников..." required
+                      class="w-full bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-brand transition-all resize-none"></textarea>
+        </div>
+
+        <button type="submit" :disabled="isSending"
+                class="w-full py-5 rounded-[1.5rem] bg-gradient-to-tr from-brand to-yellow-500 text-white font-black shadow-xl shadow-brand/20 uppercase text-xs tracking-[0.2em] active:scale-[0.97] transition-all disabled:opacity-50 flex justify-center items-center gap-3">
+            <span x-show="!isSending">Запустить рассылку</span>
+            <span x-show="isSending" class="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full block"></span>
+        </button>
+    </form>
+</div>
+        
+
+<script>
+function adminPanel() {
+    return {
+        tab: 'users',
+        users: [],
+        logs: [],
+        genLink: '',
+        genGuest: '',
+        loadingUsers: false,
+        loadingLogs: false,
+        isSending: false,
+        broadcast: { title: '', message: '', category: 'info' },
+
+        initAdmin() { this.fetchUsers(); },
+
+        // --- ЛОГИКА РАССЫЛКИ ---
+        async sendBroadcast() {
+            this.isSending = true;
+            try {
+                const res = await fetch('/admin/broadcast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.broadcast)
+                });
+
+                if (res.ok) {
+                    // Очищаем поля после успеха
+                    this.broadcast = { title: '', message: '', category: 'info' };
+                    alert('📢 Рассылка успешно запущена!');
+                } else {
+                    const err = await res.json();
+                    alert('❌ Ошибка: ' + (err.detail || 'Не удалось отправить'));
+                }
+            } catch (e) {
+                console.error("Broadcast Error:", e);
+                alert('🚀 Критическая ошибка сети');
+            } finally {
+                this.isSending = false;
+            }
+        },
+
+        async fetchUsers() {
+            this.loadingUsers = true;
+            try {
+                const res = await fetch('/admin/users');
+                if (res.ok) this.users = await res.json();
+            } finally { this.loadingUsers = false; }
+        },
+
+        async fetchLogs() {
+            this.loadingLogs = true;
+            try {
+                const res = await fetch('/admin/logs');
+                if (res.ok) this.logs = await res.json();
+            } finally { this.loadingLogs = false; }
+        },
+
+        async generateLink(type) {
+            const res = await fetch('/admin/generate-link', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({role: type})
+            });
+            const data = await res.json();
+            if (type === 'family') this.genLink = data.url;
+            else this.genGuest = data.url;
+        },
+
+        async toggleBlock(user) {
+            const newRole = user.role === 'banned' ? 'user' : 'banned';
+            const res = await fetch(`/admin/users/${user.id}/role`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({role: newRole})
+            });
+            if (res.ok) this.fetchUsers();
+        },
+
+        async deleteUser(id, name) {
+            if (!confirm(`Удалить ${name}?`)) return;
+            const res = await fetch(`/admin/users/${id}`, { method: 'DELETE' });
+            if (res.ok) this.users = this.users.filter(u => u.id !== id);
+        },
+
+        isOnline(lastSeen) {
+            if(!lastSeen) return false;
+            // Важно: бэкенд отдает UTC, сравниваем корректно
+            const lastSeenDate = new Date(lastSeen.endsWith('Z') ? lastSeen : lastSeen + 'Z');
+            const diff = (new Date() - lastSeenDate) / 1000;
+            return diff < 300; 
+        },
+
+        copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+            alert('📋 Скопировано в буфер!');
+        }
+    }
+}
+</script>
+{% endblock %}

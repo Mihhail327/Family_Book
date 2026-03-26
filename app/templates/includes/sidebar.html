@@ -6,7 +6,17 @@
         <span class="text-lg font-black tracking-tight text-slate-900 dark:text-white/90">Family<span class="text-brand">Book</span></span>
     </div>
 
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-3" x-data="{ notifications: 0 }" @new-broadcast.window="notifications = $event.detail.new_count || (notifications + 1)">
+        <button @click="$dispatch('open-notifications'); notifications = 0;" class="relative p-2 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 active:scale-95 transition-all haptic-btn outline-none">
+            <span class="text-lg transition-all duration-500" :class="notifications > 0 ? 'text-brand scale-110 drop-shadow-gold' : 'text-slate-400 opacity-40'">🔔</span>
+            <template x-if="notifications > 0">
+                <span class="absolute -top-1 -right-1 flex h-4 w-4">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-4 w-4 bg-brand text-slate-900 text-[8px] font-black flex items-center justify-center border border-white/20" x-text="notifications"></span>
+                </span>
+            </template>
+        </button>
+
         <button @click="darkMode = !darkMode" class="p-2 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 active:scale-95 transition-all text-sm haptic-btn">
             <span x-show="!darkMode">🌙</span>
             <span x-show="darkMode" x-cloak>☀️</span>
@@ -18,13 +28,7 @@
     </div>
 </header>
 
-<nav class="fixed bottom-0 left-0 w-full z-[100] 
-            md:sticky md:top-0 md:left-0 md:w-64 md:h-screen 
-            flex md:flex-col justify-between md:justify-start 
-            items-center md:items-stretch px-6 py-3 md:p-6 
-            bg-slate-900/60 md:bg-slate-900/40 backdrop-blur-xl 
-            border-t md:border-t-0 md:border-r border-white/10 
-            shadow-2xl transition-all duration-300">
+<nav class="fixed bottom-0 left-0 w-full z-[100] md:sticky md:top-0 md:left-0 md:w-64 md:h-screen flex md:flex-col justify-between md:justify-start items-center md:items-stretch px-6 py-3 md:p-6 bg-slate-900/60 md:bg-slate-900/40 backdrop-blur-xl border-t md:border-t-0 md:border-r border-white/10 shadow-2xl transition-all duration-300">
     
     <div class="hidden md:flex items-center gap-3 mb-8 pl-2 cursor-default">
         <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand to-yellow-600 flex items-center justify-center shadow-lg shadow-brand/20">
@@ -55,16 +59,20 @@
             <span class="text-2xl md:text-xl group-hover:scale-110 transition-transform drop-shadow-md">👥</span>
             <span class="text-[10px] md:text-sm font-bold tracking-tight">Семья</span>
         </a>
+            
+        {% if user and user.role == 'admin' %}
+            <a href="/admin/dashboard" class="flex flex-col md:flex-row items-center gap-1 md:gap-4 p-2 md:px-4 md:py-3 rounded-xl hover:bg-rose-500/10 transition-all text-rose-500 hover:text-rose-400 group">
+                <span class="text-2xl md:text-xl group-hover:scale-110 transition-transform drop-shadow-md">⚙️</span>
+                <span class="text-[10px] md:text-sm font-bold tracking-tight">Пульт</span>
+            </a>
+        {% endif %}
 
         {% if user %}
-        <a href="/auth/profile/{{ user.username }}" 
-           class="md:hidden flex flex-col items-center gap-1 p-2 text-slate-400 hover:text-brand transition-all group active:scale-90">
-            
+        <a href="/auth/profile/{{ user.username }}" class="md:hidden flex flex-col items-center gap-1 p-2 text-slate-400 hover:text-brand transition-all group active:scale-90">
             <div class="relative">
                 <span class="text-2xl group-hover:scale-110 transition-transform drop-shadow-md">👤</span>
                 <div class="absolute -top-1 -right-1 h-2.5 w-2.5 bg-emerald-500 rounded-full border-2 border-slate-900 shadow-sm"></div>
             </div>
-            
             <span class="text-[10px] font-bold tracking-tight uppercase opacity-80 group-hover:opacity-100">Профиль</span>
         </a>
         {% endif %}
@@ -72,19 +80,33 @@
 
     <div class="hidden md:flex flex-col mt-auto w-full pt-4 border-t border-white/10 space-y-4">
         
+        <div x-data="{ notifications: 0 }" 
+             @new-broadcast.window="notifications = $event.detail.new_count || (notifications + 1)"
+             @click="$dispatch('open-notifications'); notifications = 0; if ('vibrate' in navigator) navigator.vibrate(5);"
+             class="w-full flex items-center gap-4 p-3 rounded-xl transition-all duration-300 border border-transparent group cursor-pointer"
+             :class="notifications > 0 ? 'bg-brand/10 border-brand/20 shadow-[0_0_20px_rgba(212,175,55,0.05)]' : 'bg-white/5 border-white/10 hover:bg-white/10'">
+            <div class="relative">
+                <span class="text-xl transition-all duration-500" :class="notifications > 0 ? 'text-brand drop-shadow-gold scale-110 animate-bell' : 'text-slate-500 opacity-30 group-hover:opacity-100'">🔔</span>
+                <template x-if="notifications > 0">
+                    <span class="absolute -top-1.5 -right-1.5 bg-brand text-slate-900 text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-lg border border-white/10" x-text="notifications"></span>
+                </template>
+            </div>
+            <div class="flex flex-col leading-none">
+                <span class="text-[11px] font-black uppercase tracking-[0.2em] transition-colors" :class="notifications > 0 ? 'text-brand' : 'text-slate-400 group-hover:text-white'">Уведомления</span>
+                <span x-show="notifications > 0" class="text-[8px] font-black uppercase tracking-widest text-brand/70 mt-1 animate-pulse">Есть новости</span>
+            </div>
+        </div>
+
         <button @click="darkMode = !darkMode" class="w-full flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all active:scale-95 group outline-none">
             <span class="text-xs font-black uppercase text-slate-400 tracking-widest group-hover:text-white transition-colors">Тема</span>
-            <span x-show="!darkMode" class="text-lg drop-shadow-md">🌙</span>
-            <span x-show="darkMode" class="text-lg drop-shadow-md" x-cloak>☀️</span>
+            <span x-show="!darkMode" class="text-lg">🌙</span>
+            <span x-show="darkMode" class="text-lg" x-cloak>☀️</span>
         </button>
 
         {% if user %}
         <div class="flex items-center space-x-3 p-2 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 transition-all shadow-sm group">
-            
             <a href="/auth/profile/{{ user.username }}" class="relative shrink-0">
-                <img src="{{ user.avatar_url or '/static/default_avatar.png' }}" 
-                     class="h-10 w-10 rounded-lg object-cover border border-white/20 shadow-lg group-hover:border-brand transition-all duration-300">
-                
+                <img src="{{ user.avatar_url or '/static/default_avatar.png' }}" class="h-10 w-10 rounded-lg object-cover border border-white/20 shadow-lg group-hover:border-brand transition-all duration-300">
                 <div class="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center bg-slate-900 rounded-full shadow-lg">
                     <span class="relative flex h-2 w-2">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -92,33 +114,55 @@
                     </span>
                 </div>
             </a>
-            
-            <div class="flex flex-col leading-none overflow-hidden flex-1">
-                <a href="/auth/profile/{{ user.username }}" class="text-white text-sm font-black truncate hover:text-brand transition-colors">
-                    {{ user.display_name }}
-                </a>
+            <div class="flex-1 flex flex-col leading-none overflow-hidden">
+                <a href="/auth/profile/{{ user.username }}" class="text-white text-sm font-black truncate hover:text-brand transition-colors">{{ user.display_name }}</a>
                 {% if user.role == 'admin' %}
                     <span class="text-[9px] text-brand uppercase font-black tracking-widest mt-1 animate-pulse">Админ 🛠️</span>
                 {% endif %}
             </div>
-
-            <button @click="settingsOpen = true; if ('vibrate' in navigator) navigator.vibrate(10);" 
-                    class="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors haptic-btn"
-                    title="Настройки">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                </svg>
-            </button>
+            <button @click="settingsOpen = true; if ('vibrate' in navigator) navigator.vibrate(10);" class="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors haptic-btn">⚙️</button>
         </div>
-
-        <a href="/auth/logout" @click="if ('vibrate' in navigator) navigator.vibrate([30, 10, 30]);"
-           class="flex items-center gap-3 p-3 rounded-xl text-rose-500 hover:bg-rose-500/10 transition-all mt-2 group">
-            <svg class="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
+        <a href="/auth/logout" class="flex items-center gap-3 p-3 rounded-xl text-rose-500 hover:bg-rose-500/10 transition-all mt-2 group">
+            <svg class="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
             <span class="text-xs font-black uppercase tracking-widest">Выйти</span>
         </a>
         {% endif %}
     </div>
 </nav>
+
+<div x-data="{ notificationsOpen: false, list: [] }" 
+     @open-notifications.window="notificationsOpen = true"
+     @new-broadcast.window="list.unshift($event.detail)"
+     class="relative z-[250]">
+    <div x-show="notificationsOpen" x-transition.opacity @click="notificationsOpen = false" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+    <div x-show="notificationsOpen" x-transition:enter="transition transform duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition transform duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full" class="fixed inset-y-0 right-0 w-full max-w-sm glass-card backdrop-blur-2xl border-l border-white/10 shadow-2xl flex flex-col" x-cloak>
+        <div class="p-6 border-b border-white/10 flex items-center justify-between">
+            <h3 class="text-sm font-black uppercase tracking-[0.2em] text-white">Уведомления</h3>
+            <button @click="notificationsOpen = false" class="p-2 text-slate-400 hover:text-white transition-colors text-2xl">✕</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+            <template x-if="list.length === 0">
+                <div class="h-full flex flex-col items-center justify-center opacity-20 py-20">
+                    <span class="text-5xl mb-4">📭</span>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-white text-center">Уведомлений нет</p>
+                </div>
+            </template>
+            <template x-for="(item, index) in list" :key="index">
+                <div class="p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-brand/30 transition-all">
+                    <div class="flex items-start gap-3">
+                        <div class="text-xl" x-text="item.category === 'success' ? '✨' : '⚠️'"></div>
+                        <div class="flex-1">
+                            <p class="text-sm text-slate-200 leading-relaxed font-medium" x-text="item.message"></p>
+                            <span class="text-[9px] font-bold text-slate-500 uppercase mt-2 block" x-text="new Date().toLocaleTimeString()"></span>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+        <template x-if="list.length > 0">
+            <div class="p-4 border-t border-white/10">
+                <button @click="list = []; notificationsOpen = false" class="w-full py-3 rounded-xl bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-all">Очистить всё</button>
+            </div>
+        </template>
+    </div>
+</div>
