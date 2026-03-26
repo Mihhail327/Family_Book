@@ -25,19 +25,22 @@ print(f"🔍 Ищу файл тут: {os.path.join(str(STATIC_DIR), 'app.js')}")
 print(f"❓ Файл реально существует? {os.path.exists(os.path.join(str(STATIC_DIR), 'app.js'))}")
 
 def fix_database_schema():
-    print("🛠 Sentinel: Checking database schema...")
+    print("🛠 Sentinel: STARTING EMERGENCY MIGRATION...")
     commands = [
-        # Для таблицы "user"
+        # Таблица USER
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS is_guest BOOLEAN DEFAULT FALSE;',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS push_token TEXT;',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP WITH TIME ZONE;',
         
-        # Для таблицы картинок (из прошлого лога)
+        # Таблица POSTIMAGE
         'ALTER TABLE "postimage" ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0;',
         
-        # 🆕 ДЛЯ ТАБЛИЦЫ ЛАЙКОВ (Текущая ошибка):
-        'ALTER TABLE "postlike" ADD COLUMN IF NOT EXISTS reaction_type TEXT DEFAULT "like";'
+        # Таблица POSTLIKE (текущая ошибка)
+        'ALTER TABLE "postlike" ADD COLUMN IF NOT EXISTS reaction_type TEXT DEFAULT \'like\';',
+        
+        # На всякий случай для уведомлений и прочего
+        'ALTER TABLE "post" ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT FALSE;'
     ]
     
     with engine.connect() as conn:
@@ -45,9 +48,10 @@ def fix_database_schema():
             try:
                 conn.execute(text(cmd))
                 conn.commit()
-                print(f"✅ Success: {cmd[:40]}...")
+                print(f"✅ SQL OK: {cmd[:45]}...")
             except Exception as e:
-                print(f"⚠️ Skip: {e}")
+                print(f"⚠️ SQL SKIP: {e}")
+    print("🛠 Sentinel: MIGRATION COMPLETE!")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
