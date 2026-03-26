@@ -26,17 +26,18 @@ print(f"❓ Файл реально существует? {os.path.exists(os.pat
 
 def fix_database_schema():
     print("🛠 Sentinel: Checking database schema...")
-    
-    # Список команд для разных таблиц
     commands = [
         # Для таблицы "user"
-        ('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS is_guest BOOLEAN DEFAULT FALSE;'),
-        ('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;'),
-        ('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS push_token TEXT;'),
-        ('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP WITH TIME ZONE;'),
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS is_guest BOOLEAN DEFAULT FALSE;',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS push_token TEXT;',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP WITH TIME ZONE;',
         
-        # 🆕 ДОБАВЛЯЕМ ДЛЯ КАРТИНОК:
-        ('ALTER TABLE "postimage" ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0;')
+        # Для таблицы картинок (из прошлого лога)
+        'ALTER TABLE "postimage" ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0;',
+        
+        # 🆕 ДЛЯ ТАБЛИЦЫ ЛАЙКОВ (Текущая ошибка):
+        'ALTER TABLE "postlike" ADD COLUMN IF NOT EXISTS reaction_type TEXT DEFAULT "like";'
     ]
     
     with engine.connect() as conn:
@@ -44,15 +45,17 @@ def fix_database_schema():
             try:
                 conn.execute(text(cmd))
                 conn.commit()
-                print(f"✅ Executed: {cmd[:40]}...")
+                print(f"✅ Success: {cmd[:40]}...")
             except Exception as e:
-                print(f"⚠️ Skip command: {e}")
+                print(f"⚠️ Skip: {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    fix_database_schema()
     """Управление жизненным циклом приложения v3.0"""
     try:
         print(f"\n--- 🛠 СТАРТ FAMILY_BOOK {settings.VERSION} ---")
-        fix_database_schema()
+        
         create_db_and_tables()
         
         # Запускаем метлу при старте сервера
