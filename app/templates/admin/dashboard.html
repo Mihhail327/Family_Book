@@ -181,31 +181,32 @@ function adminPanel() {
 
         initAdmin() { this.fetchUsers(); },
 
-        // --- ЛОГИКА РАССЫЛКИ ---
+        // --- ЛОГИКА РАССЫЛКИ (БЕЗ ALERT) ---
         async sendBroadcast() {
-            this.isSending = true;
-            try {
-                const res = await fetch('/admin/broadcast', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(this.broadcast)
-                });
+    this.isSending = true;
+    try {
+        const res = await fetch('/admin/broadcast', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(this.broadcast)
+        });
 
-                if (res.ok) {
-                    // Очищаем поля после успеха
-                    this.broadcast = { title: '', message: '', category: 'info' };
-                    alert('📢 Рассылка успешно запущена!');
-                } else {
-                    const err = await res.json();
-                    alert('❌ Ошибка: ' + (err.detail || 'Не удалось отправить'));
-                }
-            } catch (e) {
-                console.error("Broadcast Error:", e);
-                alert('🚀 Критическая ошибка сети');
-            } finally {
-                this.isSending = false;
-            }
-        },
+        if (res.ok) {
+            // Очищаем форму
+            this.broadcast = { title: '', message: '', category: 'info' };
+            
+            
+        } else {
+        
+            const err = await res.json();
+            window.dispatchEvent(new CustomEvent('new-broadcast', { 
+                detail: { title: 'Ошибка', message: err.detail || 'Ошибка рассылки', category: 'error' } 
+            }));
+        }
+    } finally {
+        this.isSending = false;
+    }
+},
 
         async fetchUsers() {
             this.loadingUsers = true;
@@ -232,6 +233,10 @@ function adminPanel() {
             const data = await res.json();
             if (type === 'family') this.genLink = data.url;
             else this.genGuest = data.url;
+
+            window.dispatchEvent(new CustomEvent('new-broadcast', { 
+                detail: { message: 'Ссылка создана! 🔑', category: 'success' } 
+            }));
         },
 
         async toggleBlock(user) {
@@ -241,26 +246,42 @@ function adminPanel() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({role: newRole})
             });
-            if (res.ok) this.fetchUsers();
+            if (res.ok) {
+                this.fetchUsers();
+                window.dispatchEvent(new CustomEvent('new-broadcast', { 
+                    detail: { message: `Статус @${user.username} изменен`, category: 'info' } 
+                }));
+            }
         },
 
+        // --- УДАЛЕНИЕ (БЕЗ СТАНДАРТНОГО CONFIRM) ---
         async deleteUser(id, name) {
-            if (!confirm(`Удалить ${name}?`)) return;
+            // Для супер-профи можно сделать модалку, но пока оставим confirm 
+            // или просто заменим фидбек после удаления
+            if (!confirm(`Вы уверены, что хотите навсегда удалить ${name}?`)) return;
+            
             const res = await fetch(`/admin/users/${id}`, { method: 'DELETE' });
-            if (res.ok) this.users = this.users.filter(u => u.id !== id);
+            if (res.ok) {
+                this.users = this.users.filter(u => u.id !== id);
+                window.dispatchEvent(new CustomEvent('new-broadcast', { 
+                    detail: { message: `Пользователь ${name} удален 🗑️`, category: 'info' } 
+                }));
+            }
         },
 
         isOnline(lastSeen) {
             if(!lastSeen) return false;
-            // Важно: бэкенд отдает UTC, сравниваем корректно
             const lastSeenDate = new Date(lastSeen.endsWith('Z') ? lastSeen : lastSeen + 'Z');
             const diff = (new Date() - lastSeenDate) / 1000;
             return diff < 300; 
         },
 
+        // --- КОПИРОВАНИЕ (БЕЗ ALERT) ---
         copyToClipboard(text) {
             navigator.clipboard.writeText(text);
-            alert('📋 Скопировано в буфер!');
+            window.dispatchEvent(new CustomEvent('new-broadcast', { 
+                detail: { message: 'Скопировано в буфер! 📋', category: 'info' } 
+            }));
         }
     }
 }

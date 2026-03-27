@@ -1,6 +1,6 @@
 let lastNotificationId = null;
 // ==========================================
-// 1. PWA SERVICE WORKER
+//  PWA SERVICE WORKER
 // ==========================================
 if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
@@ -12,7 +12,7 @@ if ("serviceWorker" in navigator) {
 }
 
 // ==========================================
-// 2. ГЛОБАЛЬНАЯ ТАКТИЛЬНОСТЬ (Haptics)
+//  ГЛОБАЛЬНАЯ ТАКТИЛЬНОСТЬ (Haptics)
 // ==========================================
 document.addEventListener('click', (e) => {
     const target = e.target.closest('.haptic-btn');
@@ -22,7 +22,7 @@ document.addEventListener('click', (e) => {
 });
 
 // ==========================================
-// 3. УТИЛИТЫ (Время и Темы)
+//  УТИЛИТЫ (Время и Темы)
 // ==========================================
 
 // Локальное время (Jinja2 передает UTC, мы превращаем в местное)
@@ -68,50 +68,9 @@ document.addEventListener('mousemove', (e) => {
     document.documentElement.style.setProperty('--mouse-y', `${y}%`);
 });
 
-// ==========================================
-// 4. СИСТЕМА УВЕДОМЛЕНИЙ (Real-time)
-// ==========================================
-
-async function checkGlobalNotifications() {
-    try {
-        const res = await fetch('/admin/api/notifications/latest'); 
-        if (res.ok) {
-            const data = await res.json();
-            
-            // ПРОВЕРКА: Если уведомления нет или ID совпадает с прошлым — выходим
-            if (!data || !data.new_message || data.id === lastNotificationId) {
-                return;
-            }
-
-            // Запоминаем ID текущего уведомления
-            lastNotificationId = data.id;
-
-            // Теперь уведомление сработает только один раз
-            window.dispatchEvent(new CustomEvent('new-broadcast', { 
-                detail: { 
-                    message: data.message,
-                    category: data.category || 'info',
-                    new_count: data.count || 1 
-                } 
-            }));
-
-            // Проигрываем звук (один раз!)
-            const audio = document.getElementById('notificationSound');
-            if (audio) audio.play().catch(() => {});
-
-        }
-    } catch (e) {
-        console.error("Ошибка уведомлений:", e);
-    }
-}
-
-// Запускаем проверку раз в 45 секунд
-setInterval(checkGlobalNotifications, 45000);
-
-console.log("🚀 Family_Book UI Core Loaded");
 
 // ==========================================
-// 5. АДМИН-ФУНКЦИИ (Broadcast)
+//  АДМИН-ФУНКЦИИ (Broadcast)
 // ==========================================
 
 window.sendBroadcast = async function(e) {
@@ -136,19 +95,38 @@ window.sendBroadcast = async function(e) {
         });
 
         if (res.ok) {
-            // Очищаем форму
             form.reset();
-            // Можно вызвать системное уведомление, если оно у тебя есть
-            alert('Рассылка успешно отправлена во все устройства Семьи!');
+            
+            // Вместо серого окошка вызываем твое стильное уведомление
+            window.dispatchEvent(new CustomEvent('new-broadcast', { 
+                detail: { 
+                    title: 'Успех!',
+                    message: 'Рассылка успешно запущена для всей семьи! 🚀',
+                    category: 'success'
+                } 
+            }));
+
         } else {
             const err = await res.json();
-            alert('Ошибка: ' + (err.detail || 'Не удалось отправить'));
+            
+            // Уведомление об ошибке
+            window.dispatchEvent(new CustomEvent('new-broadcast', { 
+                detail: { 
+                    title: 'Ошибка',
+                    message: err.detail || 'Не удалось отправить рассылку',
+                    category: 'error'
+                } 
+            }));
         }
     } catch (error) {
         console.error('Broadcast Error:', error);
-        alert('Критическая ошибка сети');
+        window.dispatchEvent(new CustomEvent('new-broadcast', { 
+            detail: { 
+                message: 'Критическая ошибка сети 🌐',
+                category: 'error'
+            } 
+        }));
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalText;
-    }
-};
+    }}

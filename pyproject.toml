@@ -20,7 +20,8 @@ dependencies = [
     "itsdangerous>=2.2.0",
     "gunicorn>=23.0.0",
     "psycopg2-binary>=2.9.9",
-    "alembic (>=1.18.4,<2.0.0)"
+    "alembic (>=1.18.4,<2.0.0)",
+    "httpx (>=0.28.1,<0.29.0)"
 ]
 
 [tool.poetry]

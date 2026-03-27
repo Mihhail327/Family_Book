@@ -206,3 +206,26 @@ body:not(.dark) .gold-breathing-overlay { mix-blend-mode: overlay; }
     0% { opacity: 0; transform: translateY(10px) scale(0.95); }
     100% { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* Анимация блика (Вариант 2) - Исправлено */
+@keyframes shine {
+    from { transform: translateX(-150%) skewX(-12deg); }
+    to { transform: translateX(200%) skewX(-12deg); }
+}
+
+.animate-shine {
+    animation: shine 1.5s infinite;
+}
+
+/* Анимация быстрого дрожания (Вариант 3) */
+@keyframes shake-fast {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-3px) rotate(-1deg); }
+    40% { transform: translateX(3px) rotate(1deg); }
+    60% { transform: translateX(-3px) rotate(-1deg); }
+    80% { transform: translateX(3px) rotate(1deg); }
+}
+
+.animate-shake-fast { 
+    animation: shake-fast 0.12s infinite linear; 
+}

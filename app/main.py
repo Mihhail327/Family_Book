@@ -2,7 +2,7 @@ from datetime import date
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Form, Request, Depends, Response
+from fastapi import FastAPI, Form, Request, Depends, Response, WebSocket
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,7 +19,7 @@ from app.services.cleanup import cleanup_expired_guests, cleanup_old_logs
 from app.routers import admin
 from app.core.templates import templates
 from app.security import get_current_user
-from app.services.notifier import bot_alert
+from app.services.notifier import bot_alert, manager
 
 print(f"🔍 Ищу файл тут: {os.path.join(str(STATIC_DIR), 'app.js')}")
 print(f"❓ Файл реально существует? {os.path.exists(os.path.join(str(STATIC_DIR), 'app.js'))}")
@@ -27,30 +27,74 @@ print(f"❓ Файл реально существует? {os.path.exists(os.pat
 def fix_database_schema():
     print("🛠 Sentinel: STARTING EMERGENCY MIGRATION...")
     commands = [
-        # Таблица USER
+        # 1. Таблица USER (Колонки)
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS is_guest BOOLEAN DEFAULT FALSE;',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS push_token TEXT;',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP WITH TIME ZONE;',
         
-        # Таблица POSTIMAGE
+        # 2. Таблица POSTIMAGE
         'ALTER TABLE "postimage" ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0;',
         
-        # Таблица POSTLIKE (текущая ошибка)
-        'ALTER TABLE "postlike" ADD COLUMN IF NOT EXISTS reaction_type TEXT DEFAULT \'like\';',
+        # 3. Таблица POSTLIKE
+        'ALTER TABLE "postlike" ADD COLUMN IF NOT EXISTS reaction_type TEXT DEFAULT \'❤️\';',
         
-        # На всякий случай для уведомлений и прочего
-        'ALTER TABLE "post" ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT FALSE;'
+        # 4. Таблица POST
+        'ALTER TABLE "post" ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT FALSE;',
+
+        # 5. Создание таблицы НОТИФИКАЦИЙ
+        """
+        CREATE TABLE IF NOT EXISTS "notification" (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES "user"(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            category TEXT DEFAULT 'info',
+            link TEXT,
+            is_read BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+
+        # 6. Создание таблицы КАЛЕНДАРЯ
+        """
+        CREATE TABLE IF NOT EXISTS "event" (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT,
+            event_time TEXT DEFAULT '00:00',
+            event_date DATE NOT NULL,
+            event_type TEXT DEFAULT 'other',
+            user_id INTEGER NOT NULL REFERENCES "user"(id) ON DELETE CASCADE
+        );
+        """,
+
+        # 7. Создание таблицы ЛОГОВ АУДИТА
+        """
+        CREATE TABLE IF NOT EXISTS "auditlog" (
+            id SERIAL PRIMARY KEY,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            user_id INTEGER REFERENCES "user"(id) ON DELETE SET NULL,
+            action TEXT NOT NULL,
+            details TEXT NOT NULL,
+            ip_address TEXT,
+            is_error BOOLEAN DEFAULT FALSE
+        );
+        """
     ]
     
     with engine.connect() as conn:
         for cmd in commands:
             try:
-                conn.execute(text(cmd))
-                conn.commit()
-                print(f"✅ SQL OK: {cmd[:45]}...")
+                # Очищаем команду от лишних пробелов по краям
+                clean_cmd = cmd.strip()
+                if clean_cmd:
+                    conn.execute(text(clean_cmd))
+                    conn.commit()
+                    print(f"✅ SQL OK: {clean_cmd[:45]}...")
             except Exception as e:
-                print(f"⚠️ SQL SKIP: {e}")
+                # Мы не роняем сервер, если колонка уже есть (это нормально)
+                print(f"⚠️ SQL SKIP: {str(e)[:100]}")
     print("🛠 Sentinel: MIGRATION COMPLETE!")
 
 @asynccontextmanager
@@ -192,7 +236,11 @@ async def serve_manifest():
 async def calendar_page(request: Request, user=Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/auth/login", status_code=303)
-    return templates.TemplateResponse("calendar.html", {"request": request, "user": user})
+    return templates.TemplateResponse(
+    request=request, 
+    name="calendar.html", 
+    context={"user": user}
+)
 
 @app.get("/calendar/events")
 async def get_calendar_events(month: int, year: int):
@@ -228,9 +276,9 @@ async def get_calendar_day_details(
         
         # Рендерим новый файл, где только события
         return templates.TemplateResponse(
-            "includes/_calendar_day_content.html", 
-            {
-                "request": request, 
+            request=request,
+            name="includes/_calendar_day_content.html", 
+            context={
                 "events": events,
                 "selected_date": f"{day:02d}.{month:02d}.{year}",
                 "user": user
@@ -306,3 +354,53 @@ async def redirect_old_register(token: str):
 @app.get("/debug-test")
 async def debug_test():
     return {"status": "ok", "message": "FastAPI работает!"}
+
+@app.websocket("/ws/notifications")
+async def websocket_endpoint(websocket: WebSocket):
+    # 1. Принимаем подключение через упрощенный менеджер
+    await manager.connect(websocket)
+    try:
+        while True:
+            # 2. Держим сокет открытым (слушаем входящие, чтобы не закрылся)
+            await websocket.receive_text()
+    except Exception:
+        # 3. Если сокет закрылся или произошла ошибка
+        manager.disconnect(websocket)
+
+@app.exception_handler(404)
+@app.exception_handler(500)
+async def global_exception_handler(request: Request, exc):
+    # 1. Определяем статус
+    status_code = getattr(exc, 'status_code', 500)
+    error_type = "404_NOT_FOUND" if status_code == 404 else "500_SERVER_ERROR"
+    
+    # 2. Пытаемся достать пользователя через Depends или из скоупа
+    # В exception_handler напрямую Depends(get_current_user) не всегда работает, 
+    # поэтому пробуем достать из контекста, если он там есть
+    user_info = "Неавторизованный гость"
+    
+    # Пытаемся получить юзера (простой способ для FastAPI)
+    try:
+        from app.security import get_current_user
+        # Мы вызываем get_current_user вручную, чтобы узнать, кто споткнулся
+        user = await get_current_user(request) # type: ignore
+        if user:
+            user_info = f"@{user.username} (ID: {user.id})"
+    except Exception:
+        pass
+
+    # 3. Отправляем ПОЛНЫЙ отчет тебе в Telegram
+    await bot_alert.send_alert(
+        f"🚨 **СИСТЕМА ВЫТЯГИВАНИЯ**\n\n"
+        f"👤 **Пострадавший:** {user_info}\n"
+        f"📂 **Где упало:** `{request.url.path}`\n"
+        f"🛠 **Метод:** {request.method}\n"
+        f"❓ **Тип:** {error_type}\n\n"
+        f"🛡️ _Юзер возвращен в безопасную зону._"
+    )
+
+    # 4. Редирект на главную (если это не запрос за статикой)
+    if request.url.path.startswith("/static"):
+        return Response(status_code=status_code)
+        
+    return RedirectResponse(url="/?error_redirect=true")

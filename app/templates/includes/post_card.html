@@ -30,29 +30,89 @@
         {% endif %}
     </div>
 
-    <div class="relative p-4" x-data="{ isRevealed: {{ 'false' if post.is_gift else 'true' }} }">
-        {% if post.is_gift %}
-        <div x-show="!isRevealed" @click="isRevealed = true; if ('vibrate' in navigator) navigator.vibrate([10, 50, 10]);" class="absolute inset-4 z-30 flex flex-col items-center justify-center cursor-pointer overflow-hidden rounded-[1.5rem] backdrop-blur-2xl bg-white/95 dark:bg-slate-900/95 border border-brand/40 shadow-xl group/gift">
-            <div class="relative z-10 text-6xl mb-4 transform group-hover/gift:scale-110 transition-all">🎁</div>
-            <p class="relative z-10 font-black uppercase tracking-[0.2em] text-[10px] text-brand">Снять упаковку</p>
-        </div>
-        {% endif %}
+<div class="relative px-4 pb-4 pt-2" 
+     x-data="{ 
+        isRevealed: {{ 'false' if post.is_gift else 'true' }}, 
+        isProcess: false,
+        
+        openGift() {
+            if (this.isRevealed || this.isProcess) return;
+            this.isProcess = true;
+            if ('vibrate' in navigator) navigator.vibrate([10, 50, 10, 100]);
+            
+            setTimeout(() => {
+                this.isRevealed = true;
+                this.isProcess = false;
+            }, 450);
+        }
+     }">
 
-        <div class="space-y-4 transition-all duration-1000" :class="!isRevealed ? 'blur-xl opacity-20 grayscale' : ''">
-            {% if post.content %}<p class="text-slate-800 dark:text-slate-200 text-sm leading-relaxed whitespace-pre-wrap font-medium">{{ post.content }}</p>{% endif %}
-            {% if post.images %}
-            <div class="rounded-[2rem] overflow-hidden border border-slate-200 dark:border-white/5 bg-black/5 mt-4">
-                <div class="grid gap-1 {% if post.images|length == 1 %} grid-cols-1 {% elif post.images|length == 2 %} grid-cols-2 {% else %} grid-cols-2 sm:grid-cols-3 {% endif %}">
-                    {% for img in post.images[:6] %}
-                    <div class="relative group/img overflow-hidden h-40 sm:h-48">
-                        <img src="{{ img.url }}" @click="$dispatch('open-zoom', { src: '{{ img.url }}', all: [{% for i in post.images %}'{{ i.url }}'{% if not loop.last %},{% endif %}{% endfor %}] })" class="w-full h-full object-cover cursor-zoom-in hover:scale-110 transition-all duration-700" loading="lazy" />
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
+    {% if post.is_gift %}
+    <div x-show="!isRevealed" 
+         x-transition:leave="transition ease-in duration-500"
+         x-transition:leave-start="opacity-100 scale-100 rotate-0"
+         x-transition:leave-end="opacity-0 scale-150 rotate-6 blur-3xl"
+         @click="openGift()"
+         :class="isProcess ? 'animate-shake-fast border-white shadow-[0_0_50px_rgba(255,255,255,0.6)]' : 'hover:shadow-brand/50'"
+         class="absolute inset-4 z-40 flex flex-col items-center justify-center cursor-pointer overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-slate-900 via-brand/20 to-slate-900 border-2 border-brand/40 transition-all duration-300 group/gift">
+        
+        <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 translate-x-[-150%] group-hover/gift:animate-shine"></div>
+        
+        <div class="relative z-10 text-7xl mb-3 transform transition-transform duration-300"
+             :class="isProcess ? 'scale-125' : 'group-hover/gift:scale-110'">
+            🎁
         </div>
+        
+        <p class="relative z-10 font-black uppercase tracking-[0.3em] text-[10px] text-brand">
+            <span x-show="!isProcess">Открыть подарок</span>
+            <span x-show="isProcess" class="text-white animate-pulse">Лопается...</span>
+        </p>
+    </div> {% endif %}
+
+    <div class="transition-all duration-1000 ease-out" 
+         :class="!isRevealed ? 'blur-2xl opacity-0 scale-90' : 'blur-0 opacity-100 scale-100'">
+        
+        {% if post.content %}
+            <p class="text-slate-800 dark:text-slate-200 text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                {{ post.content }}
+            </p>
+        {% endif %}
+        
+        {% if post.images %}
+<div class="rounded-[2rem] overflow-hidden border border-slate-200 dark:border-white/5 bg-black/5 mt-3">
+    {# Динамическая сетка: всегда 2 колонки, но меняем поведение строк #}
+    <div class="grid grid-cols-2 gap-1">
+        
+        {% for img in post.images[:6] %}
+            <div class="relative group/img overflow-hidden 
+                {# ЛОГИКА КОЛЛАЖА #}
+                {# 1. Если фото всего 1 — растягиваем на всю ширину #}
+                {% if post.images|length == 1 %} col-span-2 h-72
+                {# 2. Если фото 3 или 5 — первое фото делаем большим «героем» на всю ширину #}
+                {% elif (post.images|length == 3 or post.images|length == 5) and loop.index == 1 %} col-span-2 h-64
+                {# 3. В остальных случаях — стандартный квадрат #}
+                {% else %} h-40 sm:h-48 {% endif %}">
+                
+                <img src="{{ img.url }}" 
+                     @click="$dispatch('open-zoom', { src: '{{ img.url }}', all: [{% for i in post.images %}'{{ i.url }}'{% if not loop.last %},{% endif %}{% endfor %}] })"
+                     class="w-full h-full object-cover cursor-zoom-in hover:scale-110 transition-all duration-700" 
+                     loading="lazy" />
+
+                {# СЧЕТЧИК: Если это 6-е фото и их всего больше 6 #}
+                {% if loop.index == 6 and post.images|length > 6 %}
+                <div @click.stop="$dispatch('open-zoom', { src: '{{ img.url }}', all: [{% for i in post.images %}'{{ i.url }}'{% if not loop.last %},{% endif %}{% endfor %}] })"
+                     class="absolute inset-0 bg-black/70 backdrop-blur-md flex flex-col items-center justify-center cursor-pointer group-hover/img:bg-black/50 transition-all duration-300">
+                    <span class="text-white font-black text-2xl tracking-tighter">+{{ post.images|length - 5 }}</span>
+                    <span class="text-white/80 text-[10px] font-bold uppercase tracking-widest">фото</span>
+                </div>
+                {% endif %}
+            </div>
+        {% endfor %}
     </div>
+</div>
+{% endif %}
+    </div>
+</div>
 
     <div class="px-2 pb-4" x-data="{ commentsOpen: false, loaded: false }">
     <div class="glass-card bg-black/5 dark:bg-white/5 border border-white/5 rounded-2xl grid grid-cols-[1fr_auto_1fr] items-center p-1 relative z-10">

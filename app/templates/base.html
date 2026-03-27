@@ -50,12 +50,23 @@
             x-data="{ show: true }"
             x-show="show"
             x-init="
+                // 1. Авто-скрытие через 4 секунды
                 setTimeout(() => show = false, 4000);
+    
+                // 2. Звук и вибрация
                 try {
-                    document.getElementById('notificationSound').play().catch(e => console.log('Звук заблокирован'));
-                    if ('vibrate' in navigator) navigator.vibrate(20);
-                } catch(e) {}
-            "
+                    const audio = document.getElementById('notificationSound');
+                    if (audio) {
+                    audio.currentTime = 0; // Сбрасываем в начало, если сообщений несколько
+                    audio.play().catch(e => console.log('Автовоспроизведение заблокировано браузером'));
+                }
+        
+                // Вибрация: короткий четкий клик
+                if ('vibrate' in navigator) navigator.vibrate(40);
+            } catch(e) {
+                console.error('Ошибка уведомления:', e);
+            }
+        "
             x-transition:enter="transition ease-out duration-300"
             x-transition:enter-start="opacity-0 transform -translate-y-4 scale-95"
             x-transition:enter-end="opacity-100 transform translate-y-0 scale-100"
@@ -138,8 +149,10 @@
      @open-zoom.window="
         zoomSrc = $event.detail.src; 
         images = $event.detail.all || [zoomSrc];
+        // Важно: находим индекс текущей картинки в массиве всех картинок
         currentIndex = images.indexOf(zoomSrc);
         imgZoomOpen = true;
+        if('vibrate' in navigator) navigator.vibrate(10);
      "
      @keydown.right.window="next()"
      @keydown.left.window="prev()"
@@ -203,21 +216,76 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <script>
-        // Слушаем событие новой рассылки
-        window.addEventListener('new-broadcast', (event) => {
-    const data = event.detail;
-    
-    // --- ДОБАВЬ ЭТО: Вибрация при каждом уведомлении ---
-    if ('vibrate' in navigator) navigator.vibrate([50, 30, 50]);
+    window.addEventListener('new-broadcast', (event) => {
+        const data = event.detail;
+        
+        // Вибрация: двойной короткий импульс
+        if ('vibrate' in navigator) navigator.vibrate([40, 30, 40]);
 
-    // Конфетти (уже есть у тебя)
-    if (data.category === 'success') {
-        confetti({
-            particleCount: 150,
-            // ... твои настройки конфетти
-        });
+    });
+
+    // --- ПОДКЛЮЧЕНИЕ К WEBSOCKET ---
+    function connectNotifications() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/notifications`;
+        
+        console.log("🔌 Попытка подключения к сокету...");
+        const socket = new WebSocket(wsUrl);
+
+        socket.onopen = () => console.log("✅ Сокет успешно подключен!");
+        
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            console.log("📩 Новое сообщение из сокета:", data);
+            
+            // 1. Проверяем оба типа (через тире и через подчеркивание)
+            if (data.type === 'new-broadcast' || data.type === 'new_broadcast') {
+                
+                // 2. ПРИНУДИТЕЛЬНЫЙ ЗВУК (прямо здесь, чтобы не терялся)
+                const audio = document.getElementById('notificationSound');
+                if (audio) {
+                    audio.currentTime = 0;
+                    // Пытаемся играть. Если браузер блокирует — просто выведем инфу
+                    audio.play().catch(() => console.log("🔇 Звук заблокирован до клика по сайту"));
+                }
+
+                // 3. Отправляем событие для конфетти и уведомлений
+                // Для надежности шлем оба варианта события
+                window.dispatchEvent(new CustomEvent('new-broadcast', { detail: data }));
+                window.dispatchEvent(new CustomEvent('new_broadcast', { detail: data }));
+            }
+        };
+
+        socket.onclose = () => {
+            console.log("🔌 Сокет закрыт. Пробую переподключиться через 5 сек...");
+            setTimeout(connectNotifications, 5000); // Авто-переподключение
+        };
+
+        socket.onerror = (err) => console.error("❌ Ошибка сокета:", err);
+    }
+
+    // Запускаем подключение
+    connectNotifications();
+
+    document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    if (urlParams.get('error_redirect')) {
+        // Вызываем наше красивое уведомление (без конфетти, строгое)
+        window.dispatchEvent(new CustomEvent('new-broadcast', { 
+            detail: { 
+                title: '🛡️ Система защиты',
+                message: 'Мы обнаружили проблему на предыдущей странице. Вы возвращены в безопасную зону, а техподдержка уже получила отчет. Приносим извинения! 🙏',
+                category: 'warning' // Желтое/важное
+            } 
+        }));
+        
+        // Чистим адресную строку, чтобы при обновлении плашка не вылезала снова
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
     }
 });
-    </script>
+
+</script>
 </body>
 </html>

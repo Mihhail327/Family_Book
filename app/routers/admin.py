@@ -109,21 +109,21 @@ async def broadcast_message(
     session: Session = Depends(get_session), 
     admin: User = Depends(admin_required)
 ):
-    """Массовая рассылка с 'пингом' для фронтенда"""
+    """Массовая рассылка: записываем в базу, а сокет вылетит сам"""
+    
     safe_title = validate_security_input(data.title)
     safe_message = validate_security_input(data.message)
 
-    # Создаем уведомления для всех (кроме админа, чтобы не спамить себе)
-    # Предполагаем, что у тебя в БД есть таблица SystemNotification
-    create_system_notification(
+    
+    await create_system_notification(
         session, 
         safe_title, 
         safe_message, 
-        category=data.category,
-        is_broadcast=True # Пометка, чтобы фронт вывел это как Toast # type: ignore
+        category=data.category
     )
     
     log_action("ADMIN", "BROADCAST_SENT", f"Рассылка: {safe_title}")
+    
     return {"status": "success", "message": "Рассылка ушла в эфир!"}
 
 @router.get("/dashboard")

@@ -23,9 +23,12 @@ async def family_page(request: Request, session: Session = Depends(get_session))
     current_user = session.get(User, user_id)
 
     # 4. Рендерим страницу (используем объект templates)
-    return templates.TemplateResponse("family.html", {
-        "request": request,
-        "users": users,
-        "user": current_user,
-        "now": datetime.now(timezone.utc)
-    })
+    return templates.TemplateResponse(
+        request=request, 
+        name="family.html", 
+        context={
+            "users": users, 
+            "user": current_user, 
+            "now": datetime.now(timezone.utc)
+        }
+    )

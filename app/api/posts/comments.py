@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from urllib import response
 from fastapi import APIRouter, Depends, Form, Request, HTTPException
 from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlmodel import Session
@@ -28,8 +27,9 @@ async def load_comments(
     # 🟢 HTMX всегда просит фрагмент. 
     # Если зайти просто браузером, мы тоже отдадим этот фрагмент (это ок для отладки)
     return templates.TemplateResponse(
-        "includes/_comments_list.html", 
-        {"request": request, "post": post}
+        request=request,
+        name="includes/_comments_list.html",
+        context={"post": post}
     )
 
 @router.post("/posts/{post_id}/comment")
@@ -66,12 +66,12 @@ async def create_comment(
         
         # 🟢 МАГИЯ HTMX: Если запрос пришел от HTMX, не редиректим!
         if request.headers.get("HX-Request"):
-            # Обновляем объект поста, чтобы подтянулся новый коммент
             session.refresh(new_comment) 
             post = session.get(Post, post_id)
             return templates.TemplateResponse(
-                "includes/_comments_list.html", 
-                {"request": request, "post": post}
+                request=request,
+                name="includes/_comments_list.html", 
+                context={"post": post}
             )
             
         flash(response, "Комментарий добавлен", "success")

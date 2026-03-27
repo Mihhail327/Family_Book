@@ -1,20 +1,20 @@
 from sqlmodel import Session, select, col
-from app.models import Notification, User # Проверь, что в моделях это Notification
+from app.models import Notification, User
 from typing import Optional
+from app.services.notifier import manager 
 
-
-def create_system_notification(
+async def create_system_notification(
     session: Session,
     title: str,
     message: str,
     user_id: Optional[int] = None,
     category: str = "info",
     link: Optional[str] = None,
-    is_broadcast: bool = False # Добавили, чтобы вызов из admin.py не падал
+    is_broadcast: bool = False
 ):
     try:
+        # --- 1. ЗАПИСЬ В БАЗУ ---
         if user_id:
-            # Уведомление конкретному пользователю
             new_note = Notification(
                 user_id=user_id,
                 title=title,
@@ -25,23 +25,33 @@ def create_system_notification(
             session.add(new_note)
         else:
             # Массовая рассылка (всем кроме гостей)
-            statement = select(User.id).where(
-                User.is_guest.is_(False), # type: ignore
-                col(User.id).is_not(None)
-            )
+            statement = select(User.id).where(col(User.is_guest) == False)  # noqa: E712
             user_ids = session.exec(statement).all()
-            
             for uid in user_ids:
-                new_note = Notification(
+                session.add(Notification(
                     user_id=uid, # type: ignore
                     title=title,
                     message=message,
                     category=category,
                     link=link
-                )
-                session.add(new_note)
-
+                ))
+        
         session.commit()
+
+        # --- 2. ЖИВОЕ УВЕДОМЛЕНИЕ (WebSocket) ---
+        payload = {
+            "title": title,
+            "message": message,
+            "category": category,
+            "link": link,
+            "type": "new_broadcast" # Добавляем тип, чтобы JS в base.html поймал событие
+        }
+        
+        if user_id:
+            await manager.broadcast(payload, user_id=user_id) # type: ignore
+        else:
+            await manager.broadcast(payload)
+
     except Exception as e:
         session.rollback()
-        raise e
+        print(f"❌ Notification Error: {e}")

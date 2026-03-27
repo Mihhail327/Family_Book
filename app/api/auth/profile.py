@@ -24,7 +24,7 @@ router = APIRouter()
 async def profile_page(request: Request, username: str, session: Session = Depends(get_session)):
     user_id = get_current_user(request)
     if not user_id:
-        res = RedirectResponse("/login", status_code=303)
+        res = RedirectResponse("/auth/login", status_code=303)
         res.delete_cookie("user_session", path="/")
         return res
         
@@ -42,12 +42,15 @@ async def profile_page(request: Request, username: str, session: Session = Depen
     
     user_posts = session.exec(statement).all()
     
-    return templates.TemplateResponse("profile.html", {
-        "request": request,
-        "target_user": target_user,
-        "user": current_user,
-        "posts": user_posts 
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="profile.html",
+        context={
+            "target_user": target_user,
+            "user": current_user,
+            "posts": user_posts 
+        }
+    )
 
 @router.post("/update-avatar")
 async def update_avatar(
@@ -57,9 +60,9 @@ async def update_avatar(
 ):
     user = session.get(User, user_id)
     if not user: 
-        return RedirectResponse("/logout", status_code=303)
+        return RedirectResponse("/auth/logout", status_code=303)
 
-    res = RedirectResponse(f"/profile/{user.username}", status_code=303)
+    res = RedirectResponse(f"/auth/profile/{user.username}", status_code=303)
 
     if avatar and avatar.filename:
         try:
@@ -101,9 +104,9 @@ async def update_name(
 ):
     user = session.get(User, user_id)
     if not user: 
-        return RedirectResponse("/login", status_code=303)
+        return RedirectResponse("/auth/login", status_code=303)
 
-    redirect_url = f"/profile/{user.username}"
+    redirect_url = f"/auth/profile/{user.username}"
     new_name = display_name.strip()
     res = RedirectResponse(redirect_url, status_code=303)
 

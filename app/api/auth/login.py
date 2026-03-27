@@ -63,8 +63,9 @@ def set_auth_cookies(response: Response, user_id: int):
 async def login_page(request: Request):
     # Добавь settings в контекст!
     return templates.TemplateResponse(
-        "login.html", 
-        {"request": request, "settings": settings}
+        request=request,
+        name="login.html",
+        context={"settings": settings}
     )
 
 
