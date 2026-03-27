@@ -23,7 +23,7 @@ select option {
 
 /* --- 2. АДАПТИВНЫЙ ФОН И ЗОЛОТОЕ "ДЫХАНИЕ" --- */
 body {
-    background-image: url("/static/images/backgrounds/bg-pc.jpg");
+    background-image: url("../images/backgrounds/bg-pc.jpg");
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
@@ -32,12 +32,12 @@ body {
 }
 
 body.dark {
-    background-image: url("/static/images/backgrounds/bg-pc-dark.jpg");
+    background-image: url("../images/backgrounds/bg-pc-dark.jpg");
 }
 
 @media (max-width: 768px) {
-    body { background-image: url("/static/images/backgrounds/bg-mobile.jpg"); }
-    body.dark { background-image: url("/static/images/backgrounds/bg-mobile-dark.jpg"); }
+    body { background-image: url("../images/backgrounds/bg-mobile.jpg"); }
+    body.dark { background-image: url("../images/backgrounds/bg-mobile-dark.jpg"); }
 }
 
 .gold-breathing-overlay {

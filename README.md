@@ -1,58 +1,49 @@
-# 🌳 FamilyBook v3.0 (Sentinel Edition)
+# 🌳 FamilyBook v3.0 (Sentinel & Rescue Edition)
 
-Семейная социальная сеть с усиленной защитой, системой уведомлений в Telegram и поддержкой PWA.
+Семейная социальная сеть нового поколения. Теперь не просто защищенная, а **отказоустойчивая** — с системой «вытягивания» пользователей из ошибок и живым интерфейсом. 🚀
 
-## 🚀 Основные функции
-* **Family Feed:** Общая лента историй с поддержкой фото (до 10 шт) и реакций.
-* **Sentinel Security:** Защита от спам-ботов (Honeypot), XSS и SQL-инъекций.
-* **Telegram Bot:** Мгновенные уведомления администратору о подозрительной активности и системных событиях.
-* **PWA Ready:** Установка на смартфон, работа в офлайн-режиме и тактильная отдача (Vibration API).
-* **Admin Panel:** Полный контроль над пользователями и контентом.
+## ❓ Что нового в v3.0?
+
+* **🛡️ Система «Вытягивания» (Rescue Logic):** Пользователь больше не увидит 404 или 500 ошибки. Система автоматически перехватывает сбои, отправляет отчет админу и мягко возвращает пользователя в «безопасную зону» (на главную) с вежливым уведомлением.
+* **✨ Праздничные уведомления:** Интерактивная шторка событий с поддержкой `Canvas Confetti API`. Система сама празднует важные семейные новости.
+* **🤖 Sentinel 2.0:** Расширенный мониторинг. Бот теперь докладывает не только о взломах, но и о том, кто из пользователей столкнулся с багом (с указанием ID и пути).
+* **📱 Тактильный интерфейс:** Глубокая интеграция `Vibration API` — каждое действие (лайк, уведомление, ошибка) имеет свой уникальный вибрационный отклик.
+* **🎭 Живой UI:** Динамические градиенты «Золотое дыхание», эффект стекла (Glassmorphism) и плавные переходы через HTMX.
 
 ## 🛠 Технологический стек
-* **Backend:** FastAPI, SQLModel (SQLAlchemy + Pydantic).
-* **Database:** PostgreSQL (Production) / SQLite (Dev).
-* **Frontend:** Jinja2 Templates, HTMX (для динамического обновления без перезагрузки).
-* **Security:** JWT Auth, Passlib (bcrypt), Sentinel Middleware.
-* **Deployment:** Render.com + Persistent Disk.
 
-## ⚙️ Настройка окружения (Environment Variables)
+* **Backend:** FastAPI (Python 3.13), SQLModel, Gunicorn (Uvicorn workers).
+* **Frontend:** Alpine.js (реактивность), Tailwind CSS (дизайн), HTMX (SPA-эффект).
+* **Realtime:** WebSockets (менеджер вещания для мгновенных уведомлений).
+* **DevOps:** Docker (Slim-образ), Poetry, Ruff (строгий линтинг).
 
-Для работы приложения необходимо создать файл `.env` (или прописать переменные в панели Render):
+## ⚙️ Переменные окружения (.env)
 
 | Ключ | Описание |
 | :--- | :--- |
-| `DATABASE_URL` | Ссылка на БД (Postgres или SQLite) |
-| `SECRET_KEY` | Секретный код для генерации JWT-токенов |
-| `BOT_TOKEN` | Токен от @BotFather |
-| `ADMIN_CHAT_ID` | Ваш ID в Telegram для получения алертов |
-| `APP_MODE` | `dev` или `prod` |
-| `ENV` | `development` или `production` |
+| `DATABASE_URL` | PostgreSQL (Prod) / SQLite (Dev) |
+| `SECRET_KEY` | Ключ для подписи JWT-токенов |
+| `BOT_TOKEN` | Токен Telegram-бота для алертов |
+| `ADMIN_CHAT_ID` | Ваш Telegram ID для связи с Sentinel |
+| `ENV` | production или development |
 
-## 📦 Быстрый старт (Local Dev)
+## 📦 Быстрый старт (Docker)
 
-1. **Клонируйте репозиторий:**
-   ```bash
-   git clone [https://github.com/your-repo/family-book.git](https://github.com/your-repo/family-book.git)
-   cd family-book
-Установите зависимости (Poetry):
+Самый быстрый способ запустить проект:
 
-Bash
-poetry install
-Запустите тесты (обязательно!):
+```bash
+# Сборка и запуск
+docker build -t family-book .
+docker run -p 8000:8000 --env-file .env family-book
 
-Bash
-poetry run pytest -v
-Запустите сервер:
+Приложение будет доступно по адресу: http://localhost:8000
 
-Bash
-poetry run uvicorn app.main:app --reload
-🛡️ Безопасность (Sentinel)
-Система автоматически блокирует запросы, если:
+## 🛡️ Архитектура безопасности (Sentinel)
 
-Заполнено скрытое поле confirm_email_address (Honeypot).
+Система работает в три эшелона:
 
-Обнаружена попытка доступа к админ-панели без прав.
+Middleware: Перехват подозрительных IP и блокировка XSS-атак на лету.
 
-Превышены лимиты загрузки файлов.
-Все инциденты мгновенно отправляются в Telegram администратору.
+Honeypot: Скрытые поля в формах для моментального бана спам-ботов.
+
+Global Exception Handler: Полная изоляция внутренних ошибок сервера от конечного пользователя.

@@ -30,7 +30,6 @@ COPY . .
 # 5. Создание директорий и права
 RUN mkdir -p /app/app/static/uploads/posts \
              /app/app/static/uploads/avatars \
-             /app/app/static/images/backgrounds \
              /app/app/logs && \
     chmod -R 755 /app/app/static
 
