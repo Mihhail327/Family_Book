@@ -13,9 +13,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="{{ url_for('static', path='css/main.css', _scheme='https', _external=True) }}?v={{ range(1, 9999) | random }}">
-    
-    <link rel="manifest" href="{{ url_for('static', path='manifest.json', _scheme='https', _external=True) }}">
+    <link rel="stylesheet" href="/static/css/main.css?v={{ range(1, 9999) | random }}">
+    <link rel="manifest" href="/static/manifest.json">
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📖</text></svg>">
 </head>
@@ -198,13 +197,13 @@
 {% include 'includes/_settings_drawer.html' %}
 
 
-<audio id="notificationSound" src="{{ url_for('static', path='sounds/notification.mp3', _scheme='https', _external=True) }}" preload="auto"></audio>
+<audio id="notificationSound" src="/static/sounds/notification.mp3" preload="auto"></audio>
 
 <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 <script defer src="https://unpkg.com/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
 <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
-<script src="{{ url_for('static', path='app.js', _scheme='https', _external=True) }}?v={{ range(1, 999) | random }}"></script>
+<script src="/static/app.js?v={{ range(1, 999) | random }}"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 

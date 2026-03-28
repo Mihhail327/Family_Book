@@ -223,13 +223,43 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.exception_handler(404)
 @app.exception_handler(500)
 async def global_exception_handler(request: Request, exc):
-    status_code = getattr(exc, 'status_code', 500)
+    # 1. Получаем статус код безопасно
+    status_code = 500
+    if hasattr(exc, 'status_code'):
+        status_code = exc.status_code
+    elif hasattr(exc, 'code'): # Для некоторых типов ошибок
+        status_code = exc.code
+
+    # 2. Игнорируем спам от статики (чтобы бот не сходил с ума)
+    if request.url.path.startswith("/static") or "favicon.ico" in request.url.path:
+        return Response(status_code=status_code)
+
+    # 3. Пытаемся узнать, кто «упал»
     user_info = "Неавторизованный гость"
     try:
-        user = await get_current_user(request) # type: ignore
-        if user: user_info = f"@{user.username} (ID: {user.id})"  # noqa: E701
-    except: pass  # noqa: E701, E722
+        # ВАЖНО: используем await, так как функция асинхронная
+        user = await get_current_user(request)  # type: ignore
+        if user: 
+            user_info = f"@{user.username} (ID: {user.id})"
+    except:  # noqa: E722
+        pass
 
-    await bot_alert.send_alert(f"🚨 **СИСТЕМА ВЫТЯГИВАНИЯ**\n👤 {user_info}\n📂 Path: `{request.url.path}`\n❓ Код: {status_code}")
-    if request.url.path.startswith("/static"): return Response(status_code=status_code)  # noqa: E701
+    # 4. Отправляем алерт ТОЛЬКО если это не бесконечный редирект
+    # И если это реально серьезная ошибка (500)
+    if status_code == 500:
+        await bot_alert.send_alert(
+            f"🚨 **SENTINEL: CRITICAL ERROR**\n"
+            f"👤 {user_info}\n"
+            f"📂 Path: `{request.url.path}`\n"
+            f"❌ Error: `{str(exc)[:200]}`" # Добавили само описание ошибки!
+        )
+
+    # 5. УМНЫЙ РЕДИРЕКТ: 
+    # Если мы уже на главной и там ошибка — не редиректим (чтобы не было петли)
+    if request.url.path == "/" or request.url.path == "/auth/login":
+        return HTMLResponse(
+            content=f"<h1>Упс! Системная ошибка {status_code}</h1><p>Мы уже чиним. Попробуйте обновить через минуту.</p>", 
+            status_code=status_code
+        )
+        
     return RedirectResponse(url="/?error_redirect=true")
