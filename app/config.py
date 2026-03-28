@@ -3,7 +3,8 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # --- 1. ГЕОГРАФИЯ ПРОЕКТА ---
-APP_DIR = Path(__file__).resolve().parent 
+ROOT_DIR = Path(__file__).resolve().parent.parent 
+APP_DIR = ROOT_DIR / "app"
 STATIC_DIR = APP_DIR / "static"
 TEMPLATES_DIR = APP_DIR / "templates"
 
@@ -24,6 +25,8 @@ env_file_name = f".env.{app_mode}"
 class Settings(BaseSettings):
     # Окружение (development, production, testing)
     ENV: str = "development"
+
+    ROOT_DIR: Path = ROOT_DIR
     
     # Основное
     PROJECT_NAME: str = "FamilyBook" 
@@ -54,13 +57,13 @@ class Settings(BaseSettings):
     # Константы путей
     STATIC_PATH: str = str(STATIC_DIR)
     TEMPLATES_PATH: str = str(TEMPLATES_DIR)
-    AVATARS_PATH: str = str(AVATARS_DIR)
-    POSTS_PATH: str = str(POSTS_DIR)
+    AVATARS_PATH: str = str(STATIC_DIR / "uploads" / "avatars")
+    POSTS_PATH: str = str(STATIC_DIR / "uploads" / "posts")
 
     # Единый конфиг для Pydantic
     model_config = SettingsConfigDict(
-        # Используй глобальный ROOT_DIR через имя модуля или просто путь
-        env_file=os.path.join(os.getcwd(), env_file_name), 
+        # env_file ищем в корневом каталоге
+        env_file=ROOT_DIR / env_file_name, 
         env_file_encoding='utf-8',
         extra='ignore'
     )
