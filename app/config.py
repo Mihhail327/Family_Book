@@ -3,8 +3,7 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # --- 1. ГЕОГРАФИЯ ПРОЕКТА ---
-APP_DIR = Path(__file__).resolve().parent
-ROOT_DIR = APP_DIR.parent
+APP_DIR = Path(__file__).resolve().parent 
 STATIC_DIR = APP_DIR / "static"
 TEMPLATES_DIR = APP_DIR / "templates"
 
@@ -46,14 +45,13 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     
     # БД
-    DATABASE_URL: str = f"sqlite:///{ROOT_DIR}/family_book.db"
+    DATABASE_URL: str = "sqlite:///./family_book.db"
 
     # Ограничения
     MAX_UPLOAD_SIZE: int = 20 * 1024 * 1024
     ALLOWED_EXTENSIONS: set[str] = {"png", "jpg", "jpeg", "gif", "webp"}
 
     # Константы путей
-    ROOT_DIR: Path = ROOT_DIR
     STATIC_PATH: str = str(STATIC_DIR)
     TEMPLATES_PATH: str = str(TEMPLATES_DIR)
     AVATARS_PATH: str = str(AVATARS_DIR)
@@ -61,7 +59,8 @@ class Settings(BaseSettings):
 
     # Единый конфиг для Pydantic
     model_config = SettingsConfigDict(
-        env_file=os.path.join(ROOT_DIR, env_file_name),
+        # Используй глобальный ROOT_DIR через имя модуля или просто путь
+        env_file=os.path.join(os.getcwd(), env_file_name), 
         env_file_encoding='utf-8',
         extra='ignore'
     )

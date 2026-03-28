@@ -103,7 +103,7 @@ app = FastAPI(title=settings.PROJECT_NAME, version=settings.VERSION, lifespan=li
 if not STATIC_DIR.exists():
     print(f"❌ КРИТИЧЕСКАЯ ОШИБКА: Папка статики не найдена по пути {STATIC_DIR}")
 else:
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+    app.mount("/static", StaticFiles(directory="app/static"), name="static")
     print(f"✅ Статика подключена: {STATIC_DIR}")
 
 # --- 5. MIDDLEWARES ---
