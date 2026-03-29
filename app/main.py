@@ -251,7 +251,7 @@ async def global_exception_handler(request: Request, exc):
             f"🚨 **SENTINEL: CRITICAL ERROR**\n"
             f"👤 {user_info}\n"
             f"📂 Path: `{request.url.path}`\n"
-            f"❌ Error: `{str(exc)[:200]}`" # Добавили само описание ошибки!
+            f"❌ Error: {type(exc).__name__}: {str(exc)}" # Добавили само описание ошибки! # type: ignore
         )
 
     # 5. УМНЫЙ РЕДИРЕКТ: 

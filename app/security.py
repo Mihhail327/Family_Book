@@ -41,13 +41,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return False
     
 # JWT логика (для PWA и Silent Refresh)
-def create_jwt_token(data: dict, expires_delta: timedelta): # Исправлено: data вместо date
-    """Универсальная функция создания токена"""
+def create_jwt_token(data: dict, expires_delta: timedelta):
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + expires_delta
-    # Сохраняем exp как timestamp для совместимости с библиотекой
     to_encode.update({"exp": int(expire.timestamp())})
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm="HS256")
+    # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Приводим алгоритм и ключ к строке явно
+    return jwt.encode(to_encode, str(settings.SECRET_KEY), algorithm="HS256")
 
 def decode_jwt_token(token: str) -> Optional[dict]:
     """Декодирует и проверяет токен"""
@@ -107,9 +106,8 @@ def create_session_token(user_id: int) -> str:
     return signer.sign(str(user_id)).decode('utf-8')
 
 def create_refresh_token(data: dict):
-    """Создает долгоживущий токен для обновления"""
-    # Ставим 30 дней по дефолту
     expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode = data.copy()
     to_encode.update({"exp": int(expire.timestamp()), "type": "refresh"})
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: str() вокруг настроек
+    return jwt.encode(to_encode, str(settings.SECRET_KEY), algorithm=str(settings.JWT_ALGORITHM))
