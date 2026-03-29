@@ -77,13 +77,14 @@ async def generate_invite_link(
     """Генерация ссылок для семьи и гостевой песочницы"""
     base_url = str(request.base_url).rstrip('/')
     
+    if settings.ENV == "production":
+        base_url = base_url.replace("http://", "https://")
+        
     if data.role == "guest":
-        # Ссылка для гостей (добавляем флаг is_guest)
-        token = settings.REGISTRATION_TOKEN # Используем основной токен
+        token = settings.REGISTRATION_TOKEN
         url = f"{base_url}/auth/register/{token}?is_guest=true"
         log_action("ADMIN", "GUEST_LINK_GEN", f"{admin.username} создал гостевой пропуск")
     else:
-        # Прямая ссылка для семьи
         url = f"{base_url}/auth/register/{settings.REGISTRATION_TOKEN}"
         log_action("ADMIN", "FAMILY_LINK_GEN", f"{admin.username} скопировал семейную ссылку")
         
