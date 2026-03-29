@@ -1,5 +1,5 @@
 import uuid
-
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from fastapi import APIRouter, Depends, Form, Request, HTTPException, UploadFile, File
 from fastapi.responses import RedirectResponse
@@ -88,14 +88,27 @@ async def register(
             avatar_url = "/static/default_avatar.png" 
 
     # 3. Создание пользователя
-    # Username генерируем автоматически (системный ID), так как в форме только Display Name
+    # Проверяем, есть ли в URL параметр ?is_guest=true
+    is_guest_mode = request.query_params.get("is_guest") == "true"
+    
+    role = "user"
+    expires_at = None
+    
+    if is_guest_mode:
+        role = "guest"
+        # Настраиваем время смерти: +30 минут от текущего момента
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+
+
     unique_username = f"user_{uuid.uuid4().hex[:8]}"
     
     new_user = User(
         username=unique_username,
         display_name=name,
         hashed_password=hash_password(settings.DEFAULT_USER_PASSWORD),
-        role="user",
+        role=role,
+        is_guest=is_guest_mode,  # Проставляем флаг
+        expires_at=expires_at,   # Ставим таймер удаления
         avatar_url=avatar_url
     )
     
@@ -108,5 +121,8 @@ async def register(
     if new_user.id is not None:
         set_auth_cookies(res, int(new_user.id))
     
-    flash(res, f"Добро пожаловать домой, {name}! ✨", "success")
+    # Красивое приветствие в зависимости от роли
+    welcome_msg = f"Добро пожаловать в песочницу, {name}! ⏳" if is_guest_mode else f"Добро пожаловать домой, {name}! ✨"
+    flash(res, welcome_msg, "success")
+    
     return res
