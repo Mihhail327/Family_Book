@@ -23,12 +23,17 @@ async def register_page(request: Request, token: str):
     if token != settings.REGISTRATION_TOKEN:
         raise HTTPException(status_code=404)
     
-    return templates.TemplateResponse("register.html", {
-        "request": request, 
-        "token": str(token),
-        "PROJECT_NAME": str(settings.PROJECT_NAME),
-        "VERSION": str(settings.VERSION)
-    })
+    # 🟢 ИСПРАВЛЕНО: Явно указываем имена аргументов!
+    return templates.TemplateResponse(
+        request=request,            # 1. Запрос
+        name="register.html",       # 2. Имя шаблона
+        context={                   # 3. Словарь с данными
+            "request": request, 
+            "token": str(token),
+            "PROJECT_NAME": str(settings.PROJECT_NAME),
+            "VERSION": str(settings.VERSION)
+        }
+    )
 
 # --- ОБРАБОТКА РЕГИСТРАЦИИ (POST) ---
 @router.post("/register/{token}")
