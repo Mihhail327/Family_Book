@@ -2,16 +2,16 @@ from fastapi.templating import Jinja2Templates
 from app.config import settings
 from app.utils.flash import get_flashed_messages
 
-# Инициализируем один раз
+# 1. Инициализируем шаблоны
 templates = Jinja2Templates(directory="app/templates")
 
-# Добавляем глобальные переменные ПРАВИЛЬНО
+# 2. Добавляем функции и константы в глобальную область видимости
+# Мы передаем PROJECT_NAME и VERSION как строки (они хешируются без проблем)
 templates.env.globals.update(
-    PROJECT_NAME=settings.PROJECT_NAME,
-    VERSION=settings.VERSION,
+    PROJECT_NAME=str(settings.PROJECT_NAME),
+    VERSION=str(settings.VERSION),
     get_flashed_messages=get_flashed_messages,
-    # Мы передаем функцию, которая возвращает настройки. 
-    # Теперь в HTML ты по-прежнему пишешь {{ settings.PROJECT_NAME }}, 
-    # но Jinja вызывает функцию и не пытается хешировать сам объект.
-    settings=lambda: settings 
+    # Самое важное: передаем settings как ЛЯМБДУ (функцию)
+    # Это обходит ошибку "unhashable type: 'dict'", так как функция хешируема
+    settings=lambda: settings
 )
