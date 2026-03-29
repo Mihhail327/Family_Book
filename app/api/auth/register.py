@@ -20,12 +20,18 @@ router = APIRouter()
 # --- СТРАНИЦА РЕГИСТРАЦИИ (GET) ---
 @router.get("/register/{token}")
 async def register_page(request: Request, token: str):
+    from app.config import settings
+    
     if token != settings.REGISTRATION_TOKEN:
         raise HTTPException(status_code=404)
     
+    # Мы передаем только строку PROJECT_NAME и VERSION. 
+    # Объект settings НЕ передаем целиком, чтобы не триггерить ошибку.
     return templates.TemplateResponse("register.html", {
         "request": request, 
-        "token": token
+        "token": str(token),
+        "PROJECT_NAME": str(settings.PROJECT_NAME),
+        "VERSION": str(settings.VERSION)
     })
     
 
