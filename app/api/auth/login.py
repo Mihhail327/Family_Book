@@ -61,12 +61,15 @@ def set_auth_cookies(response: Response, user_id: int):
 
 @router.get("/login")
 async def login_page(request: Request):
-    from app.config import settings
-    return templates.TemplateResponse("login.html", {
-        "request": request,
-        "PROJECT_NAME": str(settings.PROJECT_NAME),
-        "VERSION": str(settings.VERSION)
-    })
+    return templates.TemplateResponse(
+        request=request,            # 1. Запрос
+        name="login.html",          # 2. Имя шаблона
+        context={                   # 3. Словарь с данными
+            "request": request,
+            "PROJECT_NAME": str(settings.PROJECT_NAME),
+            "VERSION": str(settings.VERSION)
+        }
+    )
 
 
 @router.post("/login")
