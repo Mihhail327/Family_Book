@@ -113,11 +113,14 @@ async def subscribe_user(
 
 def _send_single_push(sub_dict: dict, payload_data: dict):
     """Синхронный вызов pywebpush"""
+    email = settings.VAPID_CLAIM_EMAIL
+    if email.startswith("mailto:"):
+        email = email[len("mailto:"):]
     webpush(
         subscription_info=sub_dict,
         data=json.dumps(payload_data),
         vapid_private_key=settings.VAPID_PRIVATE_KEY,
-        vapid_claims={"sub": f"mailto:{settings.VAPID_CLAIM_EMAIL}"}
+        vapid_claims={"sub": f"mailto:{email}"}
     )
 
 async def deliver_push_notifications(
