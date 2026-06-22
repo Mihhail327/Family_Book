@@ -23,7 +23,7 @@
                 <button @click="menuOpen = false; $dispatch('open-edit-modal', { id: {{ post.id }}, content: `{{ post.content | escape }}` })" class="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-slate-700 dark:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors"><span>✏️</span> Исправить</button>
                 {% endif %}
                 <button hx-post="/posts/delete/{{ post.id }}"
-                        hx-confirm="Удалить историю?"
+                        data-confirm="Удалить историю?"
                         class="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-colors border-t border-slate-100 dark:border-white/5 haptic-btn">
                     <span>🗑️</span> Удалить
                 </button>

@@ -36,7 +36,7 @@
                         hx-delete="/posts/comments/{{ comment.id }}"
                         hx-target="#comment-{{ comment.id }}"
                         hx-swap="outerHTML swap:0.4s"
-                        hx-confirm="Удалить это воспоминание?">
+                        data-confirm="Удалить это воспоминание?">
                     Удалить
                 </button>
                 {% endif %}
