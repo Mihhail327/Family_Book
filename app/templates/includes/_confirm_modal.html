@@ -12,7 +12,7 @@
             this.isOpen = false;
         }
      }"
-     @show-custom-confirm.window="show($event.detail.message, $event.detail.confirmCallback)"
+     @show-custom-confirm.window="show($event.detail.question, $event.detail.onConfirm)"
      x-show="isOpen"
      x-transition:enter="transition ease-out duration-300"
      x-transition:enter-start="opacity-0"

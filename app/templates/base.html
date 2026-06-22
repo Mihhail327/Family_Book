@@ -302,11 +302,22 @@
         window.history.replaceState({}, document.title, newUrl);
     }
     document.body.addEventListener('htmx:confirm', function(evt) {
+        // Если кнопка уже маркирована нами как подтвержденная — выполняем запрос
+        if (evt.target.hasAttribute('data-confirmed')) {
+            evt.target.removeAttribute('data-confirmed');
+            return;
+        }
+
+        // Блокируем стандартное окно
         evt.preventDefault();
+
+        // Вызываем наше кастомное окно через Alpine событие
         window.dispatchEvent(new CustomEvent('show-custom-confirm', {
             detail: {
-                message: evt.detail.question,
-                confirmCallback: function() {
+                question: evt.detail.question,
+                onConfirm: function() {
+                    // Маркируем элемент перед повторным запуском, чтобы избежать петли
+                    evt.target.setAttribute('data-confirmed', 'true');
                     evt.detail.issueRequest();
                 }
             }
