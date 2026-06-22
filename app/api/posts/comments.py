@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, Form, Request, HTTPException
+from typing import Optional
+from fastapi import APIRouter, Depends, Form, Request, HTTPException, Response
 from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlmodel import Session
 
@@ -37,6 +38,7 @@ async def create_comment(
     post_id: int,
     request: Request,
     content: str = Form(...),
+    parent_id: Optional[int] = Form(None),
     user_id: int = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -55,10 +57,17 @@ async def create_comment(
     try:
         safe_content = validate_security_input(clean_content)
 
+        # Валидируем parent_id, если он указан
+        if parent_id:
+            parent_comment = session.get(Comment, parent_id)
+            if not parent_comment or parent_comment.post_id != post_id:
+                raise HTTPException(status_code=400, detail="Некорректный родительский комментарий")
+
         new_comment = Comment(
             content=safe_content,
             post_id=post_id,
             author_id=user_id,
+            parent_id=parent_id,
             created_at=datetime.now(timezone.utc)
         )
         session.add(new_comment)
@@ -83,3 +92,31 @@ async def create_comment(
         flash(response, "Ошибка при добавлении комментария", "error")
 
     return response
+
+@router.delete("/posts/comments/{comment_id}")
+async def delete_comment(
+    comment_id: int,
+    user_id: int = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Необходимо авторизоваться")
+    
+    comment = session.get(Comment, comment_id)
+    if not comment:
+        raise HTTPException(status_code=404, detail="Комментарий не найден")
+    
+    from app.models import User
+    user = session.get(User, user_id)
+    post = session.get(Post, comment.post_id)
+    
+    is_admin = getattr(user, "role", "") == "admin"
+    is_comment_author = comment.author_id == user_id
+    is_post_author = post and post.author_id == user_id
+    
+    if not (is_comment_author or is_post_author or is_admin):
+        raise HTTPException(status_code=403, detail="У вас нет прав для удаления этого комментария")
+    
+    session.delete(comment)
+    session.commit()
+    return Response(status_code=200)

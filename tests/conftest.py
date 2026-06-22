@@ -12,6 +12,7 @@ from app.security import hash_password, create_jwt_token
 from app.config import settings
 
 # --- ⚙️ ОКРУЖЕНИЕ ---
+settings.ENV = "testing"
 sqlite_url = "sqlite:///:memory:"
 engine = create_engine(sqlite_url, connect_args={"check_same_thread": False}, poolclass=StaticPool)
 

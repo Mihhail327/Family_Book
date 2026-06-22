@@ -103,12 +103,22 @@ class Comment(SQLModel, table=True):
 
     post_id: int = Field(foreign_key="post.id", ondelete="CASCADE", index=True)
     author_id: int = Field(foreign_key="user.id")
+    parent_id: Optional[int] = Field(default=None, foreign_key="comment.id", ondelete="CASCADE")
 
     post: Optional["Post"] = Relationship(
         back_populates="comments",
         sa_relationship_kwargs={"passive_deletes": True}
     )
     author: Optional["User"] = Relationship(back_populates="comments")
+
+    parent: Optional["Comment"] = Relationship(
+        back_populates="replies",
+        sa_relationship_kwargs={"remote_side": "Comment.id"}
+    )
+    replies: List["Comment"] = Relationship(
+        back_populates="parent",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
 # --- 6. МОДЕЛЬ ДЛЯ GOD-MODE ---
 class AuditLog(SQLModel, table=True):

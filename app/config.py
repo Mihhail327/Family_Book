@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     
     # Основное
     PROJECT_NAME: str = "FamilyBook" 
-    VERSION: str = "3.0.0"  
+    VERSION: str = "4.0.0"  
     
     # Безопасность
     SECRET_KEY: str = "super_secret_key_change_me"
@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     
     # БД
     DATABASE_URL: str = "sqlite:///./family_book.db"
+    
+    # Celery
+    CELERY_BROKER_URL: str = "redis://redis:6379/0"
+    CELERY_RESULT_BACKEND: str = "redis://redis:6379/0"
 
     # Ограничения
     MAX_UPLOAD_SIZE: int = 20 * 1024 * 1024

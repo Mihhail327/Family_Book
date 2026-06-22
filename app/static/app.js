@@ -189,3 +189,31 @@ async function subscribeToPushNotifications() {
         }
     }
 }
+
+// ==========================================
+//  ЧЕСТНЫЙ RIPPLE-ЭФФЕКТ (Золотая волна)
+// ==========================================
+document.addEventListener('pointerdown', (e) => {
+    const btn = e.target.closest('.haptic-btn, .group\\/likebtn, button');
+    if (!btn) return;
+
+    // Взрываем волну только на реакциях, лайках и кнопках с обратной связью
+    const isTarget = btn.classList.contains('haptic-btn') || btn.closest('.group/likebtn') || btn.tagName === 'BUTTON';
+    if (!isTarget) return;
+
+    const ripple = document.createElement('span');
+    ripple.classList.add('custom-ripple');
+
+    const rect = btn.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    ripple.style.left = `${x}px`;
+    ripple.style.top = `${y}px`;
+
+    btn.appendChild(ripple);
+
+    ripple.addEventListener('animationend', () => {
+        ripple.remove();
+    });
+});

@@ -23,17 +23,30 @@
     x-data="{ 
         darkMode: localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches),
         createPostModalOpen: false,
-        settingsOpen: false
+        settingsOpen: false,
+        bgX: 50,
+        bgY: 50,
+        updateBg(e) {
+            if (window.innerWidth > 768) {
+                this.bgX = (e.clientX / window.innerWidth) * 100;
+                this.bgY = (e.clientY / window.innerHeight) * 100;
+            }
+        }
     }" 
     x-init="
         $watch('darkMode', val => localStorage.setItem('theme', val ? 'dark' : 'light'));
         if (createPostModalOpen) document.body.classList.add('overflow-hidden');
         else document.body.classList.remove('overflow-hidden');
     " 
+    @mousemove.window="updateBg($event)"
     :class="darkMode ? 'dark text-white' : 'text-slate-900'" 
     class="min-h-screen transition-colors duration-300 relative"
 >
-    <div class="gold-breathing-overlay"></div>
+    <div class="gold-breathing-overlay"
+         :style="window.innerWidth > 768 ? (darkMode ? 
+            `background: radial-gradient(circle at ${bgX}% ${bgY}%, rgba(212, 175, 55, 0.4) 0%, transparent 50%), radial-gradient(circle at ${100 - bgX}% ${100 - bgY}%, rgba(184, 134, 11, 0.3) 0%, transparent 50%)` : 
+            `background: radial-gradient(circle at ${bgX}% ${bgY}%, rgba(212, 175, 55, 0.25) 0%, transparent 40%), radial-gradient(circle at ${100 - bgX}% ${100 - bgY}%, rgba(212, 175, 55, 0.2) 0%, transparent 40%)`
+         ) : ''"></div>
 
     {% set messages = get_flashed_messages(request) %}
     {% if messages %}

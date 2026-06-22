@@ -161,6 +161,9 @@ async def create_post(
         upload_path = Path(settings.POSTS_PATH).resolve()
         upload_path.mkdir(parents=True, exist_ok=True)
         
+        temp_dir = Path(settings.STATIC_PATH) / "uploads" / "temp"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        
         for index, file in enumerate(files):
             if not file.filename or file.filename == "": 
                 continue
@@ -168,13 +171,23 @@ async def create_post(
             filename = f"{uuid.uuid4().hex}.webp"
             target_path = upload_path / filename
             
-            if process_and_save_image(cast(Any, file.file), str(target_path)):
-                img_entry = PostImage(
-                    url=f"/static/uploads/posts/{filename}", 
-                    post_id=new_post.id,
-                    position=index
-                )
-                session.add(img_entry)
+            # Сохраняем временный исходник на диск
+            temp_filename = f"{uuid.uuid4().hex}"
+            temp_path = temp_dir / temp_filename
+            
+            with open(temp_path, "wb") as f_temp:
+                f_temp.write(await file.read())
+            
+            # Отправляем в Celery только строковые пути
+            from app.core.celery_app import process_image_task
+            process_image_task.delay(str(temp_path), str(target_path))
+            
+            img_entry = PostImage(
+                url=f"/static/uploads/posts/{filename}", 
+                post_id=new_post.id,
+                position=index
+            )
+            session.add(img_entry)
         
         session.commit() 
         log_action(str(user_id), "POST_CREATE", f"ID: {new_post.id}")

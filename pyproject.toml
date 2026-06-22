@@ -22,7 +22,9 @@ dependencies = [
     "psycopg2-binary>=2.9.9",
     "alembic (>=1.18.4,<2.0.0)",
     "httpx (>=0.28.1,<0.29.0)",
-    "pywebpush>=1.14.0"
+    "pywebpush>=1.14.0",
+    "celery>=5.4.0",
+    "redis>=5.0.0"
 ]
 
 [tool.poetry]
