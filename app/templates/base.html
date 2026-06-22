@@ -217,6 +217,7 @@
 </div>
 
 {% block modals %}{% endblock %}
+{% include 'includes/_confirm_modal.html' %}
 {% include 'includes/create_post_madal.html' %} 
 {% include 'includes/_settings_drawer.html' %}
 
@@ -300,6 +301,17 @@
         const newUrl = window.location.pathname;
         window.history.replaceState({}, document.title, newUrl);
     }
+    document.body.addEventListener('htmx:confirm', function(evt) {
+        evt.preventDefault();
+        window.dispatchEvent(new CustomEvent('show-custom-confirm', {
+            detail: {
+                message: evt.detail.question,
+                confirmCallback: function() {
+                    evt.detail.issueRequest();
+                }
+            }
+        }));
+    });
 });
 
 </script>

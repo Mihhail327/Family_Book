@@ -297,6 +297,8 @@ async def delete_post(
     post = session.get(Post, post_id)
     user = session.get(User, user_id)
     res = RedirectResponse("/", status_code=303)
+    if request.headers.get("HX-Request") or request.headers.get("hx-request"):
+        res.headers["HX-Redirect"] = "/"
 
     if not post or not user:
         flash(res, "История не найдена", "error")

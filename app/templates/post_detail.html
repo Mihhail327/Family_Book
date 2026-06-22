@@ -32,7 +32,7 @@
             </div>
             
             {% if user and (post.author_id == user.id or user.role == 'admin') %}
-            <form action="/posts/delete/{{ post.id }}" method="post" onsubmit="return confirm('Удалить эту часть истории?')">
+            <form hx-post="/posts/delete/{{ post.id }}" hx-confirm="Удалить эту часть истории?">
                 <button type="submit" class="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all no-tap">✕</button>
             </form>
             {% endif %}
