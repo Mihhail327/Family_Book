@@ -169,3 +169,28 @@ def test_pre_upload_media(mock_delay, client: TestClient, session: Session, test
     assert data["url"].startswith("/static/uploads/posts/")
     assert data["url"].endswith(".webp")
     mock_delay.assert_called()
+
+
+def test_delete_post(client: TestClient, session: Session, test_user: User):
+    authorize_client(client, test_user.id) # type: ignore
+
+    # 1. Create a post
+    post = Post(content="История для удаления", author_id=test_user.id)
+    session.add(post)
+    session.commit()
+    session.refresh(post)
+
+    post_id = post.id
+
+    # 2. Delete the post using HX-Request
+    response = client.post(
+        f"/posts/delete/{post_id}",
+        headers={"HX-Request": "true"}
+    )
+    
+    assert response.status_code == 303
+    assert response.headers.get("HX-Redirect") == "/"
+
+    session.expire_all()
+    deleted_post = session.get(Post, post_id)
+    assert deleted_post is None

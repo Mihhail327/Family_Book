@@ -302,21 +302,25 @@
         window.history.replaceState({}, document.title, newUrl);
     }
     document.body.addEventListener('htmx:confirm', function(evt) {
-        // Если кнопка уже маркирована нами как подтвержденная — выполняем запрос
+        // Игнорируем любые запросы, которые не требуют явного подтверждения
+        if (!evt.detail.question) {
+            return;
+        }
+
+        // Проверка флага повторного (подтвержденного) запроса
         if (evt.target.hasAttribute('data-confirmed')) {
             evt.target.removeAttribute('data-confirmed');
             return;
         }
 
-        // Блокируем стандартное окно
+        // Блокируем нативный confirm только для тех, где hx-confirm действительно задан
         evt.preventDefault();
 
-        // Вызываем наше кастомное окно через Alpine событие
+        // Вызываем кастомное окно через событие Alpine
         window.dispatchEvent(new CustomEvent('show-custom-confirm', {
             detail: {
                 question: evt.detail.question,
                 onConfirm: function() {
-                    // Маркируем элемент перед повторным запуском, чтобы избежать петли
                     evt.target.setAttribute('data-confirmed', 'true');
                     evt.detail.issueRequest();
                 }
