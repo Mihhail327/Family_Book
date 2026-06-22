@@ -229,14 +229,20 @@ async def websocket_endpoint(websocket: WebSocket):
 async def global_exception_handler(request: Request, exc):
     # 1. Получаем статус код безопасно
     status_code = 500
-    if hasattr(exc, 'status_code'):
-        status_code = exc.status_code
-    elif hasattr(exc, 'code'): # Для некоторых типов ошибок
-        status_code = exc.code
+    try:
+        if hasattr(exc, 'status_code'):
+            status_code = int(exc.status_code)
+        elif hasattr(exc, 'code'): # Для некоторых типов ошибок
+            status_code = int(exc.code)
+    except (ValueError, TypeError):
+        status_code = 500
 
     # 2. Игнорируем спам от статики (чтобы бот не сходил с ума)
     if request.url.path.startswith("/static") or "favicon.ico" in request.url.path:
-        return Response(status_code=status_code)
+        try:
+            return Response(status_code=status_code)
+        except Exception:
+            return Response(status_code=500)
 
     # 3. Пытаемся узнать, кто «упал»
     user_info = "Неавторизованный гость"
@@ -254,12 +260,15 @@ async def global_exception_handler(request: Request, exc):
     # 4. Отправляем алерт ТОЛЬКО если это не бесконечный редирект
     # И если это реально серьезная ошибка (500)
     if status_code == 500:
-        await bot_alert.send_alert(
-            f"🚨 **SENTINEL: CRITICAL ERROR**\n"
-            f"👤 {user_info}\n"
-            f"📂 Path: `{request.url.path}`\n"
-            f"❌ Error: {type(exc).__name__}: {str(exc)}" # Добавили само описание ошибки! # type: ignore
-        )
+        try:
+            await bot_alert.send_alert(
+                f"🚨 **SENTINEL: CRITICAL ERROR**\n"
+                f"👤 {user_info}\n"
+                f"📂 Path: `{request.url.path}`\n"
+                f"❌ Error: {type(exc).__name__}: {str(exc)}" # Добавили само описание ошибки! # type: ignore
+            )
+        except Exception as e:
+            log_error("SENTINEL_ALERT_ERR", f"Не удалось отправить алерт: {e}")
 
     # 5. УМНЫЙ РЕДИРЕКТ: 
     # Если мы уже на главной и там ошибка — не редиректим (чтобы не было петли)

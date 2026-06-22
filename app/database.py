@@ -21,7 +21,7 @@ if is_sqlite:
         cursor.close()
 
 def create_db_and_tables():
-    """Инициализация базы v2.0"""
+    """Инициализация базы данных"""
     try:
         SQLModel.metadata.create_all(engine)
     except Exception as e:
@@ -44,7 +44,7 @@ def create_db_and_tables():
                 )
                 session.add(admin)
                 log_action("SYSTEM", "DB_INIT", "Первая инициализация админа")
-                session.add(AuditLog(action="SYSTEM_INIT", details="База данных v2.0 создана"))
+                session.add(AuditLog(action="SYSTEM_INIT", details=f"База данных v{settings.VERSION} создана"))
             else:
                 # ОПТИМИЗАЦИЯ: Обновляем хеш ТОЛЬКО если пароль в env изменился
                 if not verify_password(settings.ADMIN_PASSWORD, admin.hashed_password):
@@ -53,7 +53,7 @@ def create_db_and_tables():
                     log_action("SYSTEM", "DB_UPDATE", "Пароль администратора обновлен из настроек")
 
             session.commit()
-            print("--- ✅ База v3.0 готова к работе ---")
+            print(f"--- ✅ База v{settings.VERSION} готова к работе ---")
             
         except Exception as e:
             session.rollback()
