@@ -152,3 +152,15 @@ class Event(SQLModel, table=True):
     event_type: EventType = Field(default=EventType.OTHER)
     user_id: int = Field(foreign_key="user.id")
     creator: Optional["User"] = Relationship()
+
+
+class PushSubscription(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    
+    # Специфичные данные, которые выдает браузер телефона
+    endpoint: str = Field(index=True) # Уникальный URL устройства от Google/Apple
+    p256dh: str # Публичный ключ устройства
+    auth: str # Секрет устройства
+    
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

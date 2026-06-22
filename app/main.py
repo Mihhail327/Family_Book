@@ -150,8 +150,10 @@ async def debug_test(): return {"status": "ok", "message": "FastAPI работа
 
 # --- 7. КАЛЕНДАРЬ ---
 @app.get("/calendar", response_class=HTMLResponse) 
-async def calendar_page(request: Request, user=Depends(get_current_user)):
-    if not user: return RedirectResponse(url="/auth/login", status_code=303)  # noqa: E701
+async def calendar_page(request: Request, user_id=Depends(get_current_user), session: Session = Depends(get_session)):
+    if not user_id: return RedirectResponse(url="/auth/login", status_code=303)  # noqa: E701
+    from app.models import User
+    user = session.get(User, user_id)
     return templates.TemplateResponse(request=request, name="calendar.html", context={"user": user})
 
 @app.get("/calendar/events")
@@ -166,10 +168,11 @@ async def get_calendar_events(month: int, year: int):
         return {"events": [int(day) for day in results]}
 
 @app.get("/calendar/day-details") 
-async def get_calendar_day_details(day: int, month: int, year: int, request: Request, user=Depends(get_current_user)):
+async def get_calendar_day_details(day: int, month: int, year: int, request: Request, user_id=Depends(get_current_user)):
     from sqlmodel import select, extract
-    from app.models import Event 
+    from app.models import Event, User
     with Session(engine) as session:
+        user = session.get(User, user_id)
         statement = select(Event).where(
             extract('day', Event.event_date) == day,
             extract('month', Event.event_date) == month,
@@ -214,10 +217,11 @@ async def redirect_old_register(token: str): return RedirectResponse(url=f"/auth
 # --- 9. WEBSOCKET ---
 @app.websocket("/ws/notifications")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+    user_id = get_current_user(websocket)  # type: ignore
+    await manager.connect(websocket, user_id=user_id)
     try:
         while True: await websocket.receive_text()  # noqa: E701
-    except Exception: manager.disconnect(websocket)  # noqa: E701
+    except Exception: manager.disconnect(websocket, user_id=user_id)  # noqa: E701
 
 # --- 10. ГЛОБАЛЬНЫЙ ОБРАБОТЧИК ОШИБОК ---
 @app.exception_handler(404)
@@ -237,12 +241,15 @@ async def global_exception_handler(request: Request, exc):
     # 3. Пытаемся узнать, кто «упал»
     user_info = "Неавторизованный гость"
     try:
-        # ВАЖНО: используем await, так как функция асинхронная
-        user = await get_current_user(request)  # type: ignore
-        if user: 
-            user_info = f"@{user.username} (ID: {user.id})"
-    except:  # noqa: E722
-        pass
+        user_id = get_current_user(request)
+        if user_id:
+            from app.models import User
+            with Session(engine) as session:
+                user = session.get(User, user_id)
+                if user:
+                    user_info = f"@{user.username} (ID: {user.id})"
+    except Exception as e:
+        log_error("SENTINEL_AUTH_ERR", f"Ошибка получения пользователя в алертах: {e}")
 
     # 4. Отправляем алерт ТОЛЬКО если это не бесконечный редирект
     # И если это реально серьезная ошибка (500)
@@ -263,3 +270,4 @@ async def global_exception_handler(request: Request, exc):
         )
         
     return RedirectResponse(url="/?error_redirect=true")
+

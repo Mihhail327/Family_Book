@@ -12,6 +12,10 @@ UPLOAD_DIR = STATIC_DIR / "uploads"
 AVATARS_DIR = UPLOAD_DIR / "avatars"
 POSTS_DIR = UPLOAD_DIR / "posts"
 
+VAPID_PUBLIC_KEY: str = ""
+VAPID_PRIVATE_KEY: str = ""
+VAPID_CLAIM_EMAIL: str = ""
+
 # Создаем папки при импорте конфига
 for folder in [AVATARS_DIR, POSTS_DIR]:
     folder.mkdir(parents=True, exist_ok=True)

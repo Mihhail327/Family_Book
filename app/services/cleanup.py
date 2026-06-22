@@ -36,7 +36,13 @@ def cleanup_expired_guests(session: Session) -> int:
 
         # 1. Удаляем аватар (если он загружен, а не дефолтный)
         if g.avatar_url and "/uploads/avatars/" in g.avatar_url:
-            avatar_path = Path(settings.STATIC_PATH) / g.avatar_url.lstrip("/")
+            # Убираем веб-префикс /static/, если он присутствует в БД
+            url_path = g.avatar_url
+            if url_path.startswith("/static/"):
+                url_path = url_path[len("/static/"):]
+            elif url_path.startswith("static/"):
+                url_path = url_path[len("static/"):]
+            avatar_path = Path(settings.STATIC_PATH) / url_path.lstrip("/")
             if avatar_path.exists() and avatar_path.is_file():
                 try:
                     avatar_path.unlink()
@@ -49,7 +55,13 @@ def cleanup_expired_guests(session: Session) -> int:
         for post in posts_to_clean:
             images_to_clean: List[PostImage] = post.images
             for img in images_to_clean:
-                file_path = Path(settings.STATIC_PATH) / img.url.lstrip("/")
+                # Убираем веб-префикс /static/, если он присутствует в БД
+                url_path = img.url
+                if url_path.startswith("/static/"):
+                    url_path = url_path[len("/static/"):]
+                elif url_path.startswith("static/"):
+                    url_path = url_path[len("static/"):]
+                file_path = Path(settings.STATIC_PATH) / url_path.lstrip("/")
                 if file_path.exists() and file_path.is_file():
                     try:
                         file_path.unlink()

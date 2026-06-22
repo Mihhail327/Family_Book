@@ -11,26 +11,26 @@ from app.security import hash_password
 def test_cleanup_expired_guests(client: TestClient, session: Session):
     """Тестируем Garbage Collector: должен удалять только просроченных гостей и их файлы."""
     
-    # 1. СОЗДАЕМ ИСТЕКШЕГО ГОСТЯ (Путь БЕЗ static в начале, код сам его добавит)
+    # 1. СОЗДАЕМ ИСТЕКШЕГО ГОСТЯ (Путь с префиксом /static/, как в реальной базе данных)
     expired_guest = User(
         username="expired_guest",
         display_name="Просроченный",
         hashed_password=hash_password("123"),
         is_guest=True,
         expires_at=datetime.now(timezone.utc) - timedelta(minutes=10),
-        avatar_url="/uploads/avatars/old_avatar.webp" # Убрали static отсюда
+        avatar_url="/static/uploads/avatars/old_avatar.webp"
     )
     session.add(expired_guest)
     session.commit()
     session.refresh(expired_guest)
 
-    # Пост с картинкой (тоже без static в URL)
+    # Пост с картинкой (тоже с префиксом /static/)
     post = Post(content="Мусор", author_id=expired_guest.id) # type: ignore
     session.add(post)
     session.commit()
     session.refresh(post)
 
-    image = PostImage(url="/uploads/posts/old_pic.webp", post_id=post.id) # type: ignore
+    image = PostImage(url="/static/uploads/posts/old_pic.webp", post_id=post.id) # type: ignore
     session.add(image)
     session.commit()
     session.expire_all()
