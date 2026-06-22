@@ -307,3 +307,12 @@ body:not(.dark) .gold-breathing-overlay { mix-blend-mode: overlay; }
             radial-gradient(circle at 75% 65%, rgba(184, 134, 11, 0.3) 0%, transparent 50%);
     }
 }
+
+/* SPA-style плавное удаление постов */
+.post-card {
+    transition: all 0.3s ease-out;
+}
+.post-card.htmx-swapping {
+    opacity: 0;
+    transform: scale(0.95);
+}

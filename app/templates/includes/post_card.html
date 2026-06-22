@@ -1,4 +1,4 @@
-<article class="glass-card bg-white/30 dark:bg-slate-900/40 backdrop-blur-md rounded-[2.5rem] border border-slate-200 dark:border-white/10 overflow-hidden transition-all relative hover:shadow-2xl hover:shadow-brand/10 group animate-in fade-in duration-500 mb-6" id="post-{{ post.id }}">
+<article class="post-card glass-card bg-white/30 dark:bg-slate-900/40 backdrop-blur-md rounded-[2.5rem] border border-slate-200 dark:border-white/10 overflow-hidden transition-all relative hover:shadow-2xl hover:shadow-brand/10 group animate-in fade-in duration-500 mb-6" id="post-{{ post.id }}">
     
     <div class="p-4 flex items-center justify-between bg-black/5 dark:bg-white/5 border-b border-slate-200 dark:border-white/5">
         <a href="/auth/profile/{{ post.author.username }}" class="flex items-center space-x-3 group/author">
@@ -24,6 +24,8 @@
                 {% endif %}
                 <button hx-post="/posts/delete/{{ post.id }}"
                         data-confirm="Удалить историю?"
+                        hx-target="closest .post-card"
+                        hx-swap="delete swap:300ms"
                         class="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-colors border-t border-slate-100 dark:border-white/5 haptic-btn">
                     <span>🗑️</span> Удалить
                 </button>

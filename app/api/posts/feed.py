@@ -341,8 +341,13 @@ async def delete_post(
     session.commit()
 
     if request.headers.get("HX-Request") or request.headers.get("hx-request"):
+        hx_current_url = request.headers.get("HX-Current-URL") or request.headers.get("hx-current-url") or ""
         response = Response(status_code=200)
-        response.headers["HX-Refresh"] = "true"
+        
+        # Если мы на странице детального просмотра поста, то редиректим на главную
+        if "/posts/" in hx_current_url and "/posts/delete/" not in hx_current_url:
+            response.headers["HX-Redirect"] = "/"
+            
         flash(response, "Пост удален навсегда 🗑️", "success")
         return response
 

@@ -189,7 +189,36 @@ def test_delete_post(client: TestClient, session: Session, test_user: User):
     )
     
     assert response.status_code == 200
-    assert response.headers.get("HX-Refresh") == "true"
+    assert "HX-Redirect" not in response.headers
+    assert "HX-Refresh" not in response.headers
+
+    session.expire_all()
+    deleted_post = session.get(Post, post_id)
+    assert deleted_post is None
+
+
+def test_delete_post_from_detail_page(client: TestClient, session: Session, test_user: User):
+    authorize_client(client, test_user.id) # type: ignore
+
+    # 1. Create a post
+    post = Post(content="История для удаления из деталей", author_id=test_user.id)
+    session.add(post)
+    session.commit()
+    session.refresh(post)
+
+    post_id = post.id
+
+    # 2. Delete the post simulating being on the post detail page
+    response = client.post(
+        f"/posts/delete/{post_id}",
+        headers={
+            "HX-Request": "true",
+            "HX-Current-URL": f"http://localhost:8000/posts/{post_id}"
+        }
+    )
+    
+    assert response.status_code == 200
+    assert response.headers.get("HX-Redirect") == "/"
 
     session.expire_all()
     deleted_post = session.get(Post, post_id)
