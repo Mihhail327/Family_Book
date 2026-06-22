@@ -6,4 +6,9 @@
     </span>
     <span class="text-slate-300">{{ log.details }}</span>
 </div>
+{% else %}
+<div class="font-mono text-xs text-slate-500 space-y-1 py-2">
+    <div class="text-emerald-500/80">==&gt; Sentinel Core System v4.0.0: Connection established.</div>
+    <div class="animate-pulse">==&gt; Системный журнал пуст. Ожидание первого семейного действия... 🌐</div>
+</div>
 {% endfor %}
