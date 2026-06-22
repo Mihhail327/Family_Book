@@ -1,6 +1,6 @@
 [project]
 name = "family-book"
-version = "3.0.0"
+version = "3.5.0"
 description = "FamilyBook 3.0 - Private Family Social Network with PWA and Guest Sandbox"
 authors = [
     {name = "Mihhail Karasjov", email = "114910034+Mihhail327@users.noreply.github.com"}
@@ -21,7 +21,8 @@ dependencies = [
     "gunicorn>=23.0.0",
     "psycopg2-binary>=2.9.9",
     "alembic (>=1.18.4,<2.0.0)",
-    "httpx (>=0.28.1,<0.29.0)"
+    "httpx (>=0.28.1,<0.29.0)",
+    "pywebpush>=1.14.0"
 ]
 
 [tool.poetry]

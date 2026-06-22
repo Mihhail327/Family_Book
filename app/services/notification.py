@@ -1,3 +1,5 @@
+import json
+import asyncio
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlmodel import Session, select, col
@@ -7,6 +9,7 @@ from app.models import Notification, User, PushSubscription
 from typing import Optional
 from app.services.notifier import manager 
 from app.config import settings
+from pywebpush import webpush, WebPushException
 
 router = APIRouter(prefix="/push", tags=["Push Notifications"])
 
@@ -106,3 +109,62 @@ async def subscribe_user(
     session.add(new_sub)
     session.commit()
     return {"status": "success", "detail": "Подписка оформлена!"}
+
+
+def _send_single_push(sub_dict: dict, payload_data: dict):
+    """Синхронный вызов pywebpush"""
+    webpush(
+        subscription_info=sub_dict,
+        data=json.dumps(payload_data),
+        vapid_private_key=settings.VAPID_PRIVATE_KEY,
+        vapid_claims={"sub": f"mailto:{settings.VAPID_CLAIM_EMAIL}"}
+    )
+
+async def deliver_push_notifications(
+    session: Session,
+    user_id: Optional[int],
+    title: str,
+    message: str,
+    link: Optional[str] = None,
+    exclude_user_id: Optional[int] = None
+):
+    """Фоновая отправка push-уведомлений"""
+    if not settings.VAPID_PRIVATE_KEY or not settings.VAPID_CLAIM_EMAIL:
+        return
+
+    # Выбираем подписки
+    if user_id:
+        statement = select(PushSubscription).where(PushSubscription.user_id == user_id)
+    else:
+        # Всем кроме гостей
+        statement = select(PushSubscription).join(User, PushSubscription.user_id == User.id).where(User.is_guest == False)
+
+    if exclude_user_id:
+        statement = statement.where(PushSubscription.user_id != exclude_user_id)
+
+    subscriptions = session.exec(statement).all()
+    if not subscriptions:
+        return
+
+    payload = {
+        "title": title,
+        "body": message,
+        "url": link or "/"
+    }
+
+    for sub in subscriptions:
+        sub_info = {
+            "endpoint": sub.endpoint,
+            "keys": {
+                "p256dh": sub.p256dh,
+                "auth": sub.auth
+            }
+        }
+        try:
+            # Сетевой I/O выносим в отдельный поток
+            await asyncio.to_thread(_send_single_push, sub_info, payload)
+        except WebPushException as ex:
+            # Если подписка неактивна (404/410), удаляем её
+            if ex.response is not None and ex.response.status_code in [404, 410]:
+                session.delete(sub)
+                session.commit()

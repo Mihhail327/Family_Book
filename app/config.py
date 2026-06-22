@@ -12,10 +12,6 @@ UPLOAD_DIR = STATIC_DIR / "uploads"
 AVATARS_DIR = UPLOAD_DIR / "avatars"
 POSTS_DIR = UPLOAD_DIR / "posts"
 
-VAPID_PUBLIC_KEY: str = ""
-VAPID_PRIVATE_KEY: str = ""
-VAPID_CLAIM_EMAIL: str = ""
-
 # Создаем папки при импорте конфига
 for folder in [AVATARS_DIR, POSTS_DIR]:
     folder.mkdir(parents=True, exist_ok=True)
@@ -45,6 +41,11 @@ class Settings(BaseSettings):
     # 🤖 Sentinel Bot Settings
     BOT_TOKEN: str = "666666:your_token_here" 
     ADMIN_CHAT_ID: str = "12345678"
+
+    # VAPID (Web Push)
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_CLAIM_EMAIL: str = ""
 
     # JWT
     JWT_ALGORITHM: str = "HS256"

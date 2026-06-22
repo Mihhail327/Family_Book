@@ -1,5 +1,6 @@
 import os
 import uuid
+import asyncio
 from pathlib import Path
 from typing import List, Any, cast, Optional
 from datetime import datetime, timezone
@@ -20,6 +21,7 @@ from app.config import settings
 from app.utils.flash import flash
 from app.core.templates import templates
 from app.services.notifier import bot_alert
+from app.services.notification import deliver_push_notifications
 
 router = APIRouter()
 
@@ -176,6 +178,19 @@ async def create_post(
         
         session.commit() 
         log_action(str(user_id), "POST_CREATE", f"ID: {new_post.id}")
+
+        # Фоновый запуск рассылки пуш-уведомлений (всем кроме автора)
+        if user:
+            asyncio.create_task(
+                deliver_push_notifications(
+                    session,
+                    user_id=None,
+                    title="Новая история в семье! 📖",
+                    message=f"{user.display_name} поделился новой историей",
+                    link=f"/posts/{new_post.id}",
+                    exclude_user_id=user.id
+                )
+            )
 
         # ПОДГОТОВКА ПОЛНОГО ПОСТА ДЛЯ ОТВЕТА
         statement = select(Post).where(Post.id == new_post.id).options(

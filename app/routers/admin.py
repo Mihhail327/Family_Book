@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -7,7 +8,7 @@ from pydantic import BaseModel
 
 from app.database import get_session
 from app.models import Notification, User, AuditLog
-from app.services.notification import create_system_notification
+from app.services.notification import create_system_notification, deliver_push_notifications
 from app.security import get_current_user, validate_security_input
 from app.logger import log_action
 from app.core.templates import templates
@@ -121,6 +122,18 @@ async def broadcast_message(
         safe_title, 
         safe_message, 
         category=data.category
+    )
+
+    # Параллельно рассылаем фоновые push-уведомления всем кроме админа
+    asyncio.create_task(
+        deliver_push_notifications(
+            session,
+            user_id=None,
+            title=safe_title,
+            message=safe_message,
+            link="/",
+            exclude_user_id=admin.id
+        )
     )
     
     log_action("ADMIN", "BROADCAST_SENT", f"Рассылка: {safe_title}")
