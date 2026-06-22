@@ -148,3 +148,24 @@ def test_nested_comments_and_deletion(client: TestClient, session: Session, test
     deleted_child = session.get(Comment, child_comment.id)
     assert deleted_parent is None
     assert deleted_child is None
+
+
+@patch("app.core.celery_app.process_image_task.delay", return_value=None)
+def test_pre_upload_media(mock_delay, client: TestClient, session: Session, test_user: User):
+    authorize_client(client, test_user.id) # type: ignore
+    
+    fake_file = io.BytesIO(b"another_fake_image_bytes")
+    fake_file.name = "vacation.jpg"
+    
+    response = client.post(
+        "/api/media/upload",
+        files=[("file", (fake_file.name, fake_file, "image/jpeg"))]
+    )
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert "url" in data
+    assert data["url"].startswith("/static/uploads/posts/")
+    assert data["url"].endswith(".webp")
+    mock_delay.assert_called()

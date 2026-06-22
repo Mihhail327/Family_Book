@@ -1,6 +1,10 @@
 <div x-data="{ 
         isGift: false,
         postPreviews: [],
+        isUploading: false,
+        uploadedCount: 0,
+        totalCount: 0,
+        uploadedPaths: [],
         toggleGift() {
             this.isGift = !this.isGift;
             if (this.isGift && 'vibrate' in navigator) navigator.vibrate([20, 30, 20]);
@@ -45,11 +49,15 @@
     @htmx:after-request="if($event.detail.successful) { 
         createPostModalOpen = false; 
         postPreviews = []; 
+        uploadedPaths = [];
         $el.reset(); 
         const emptyState = document.getElementById('empty-state');
         if(emptyState) emptyState.remove(); 
     }"
 >
+    <template x-for="path in uploadedPaths">
+        <input type="hidden" name="media_paths" :value="path">
+    </template>
     <textarea name="content" rows="4" maxlength="2000" required
         class="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:ring-2 focus:ring-brand/50 outline-none resize-none mb-6 transition-all text-lg font-medium" 
         placeholder="Что происходит в семье прямо сейчас?"></textarea>
@@ -74,15 +82,16 @@
                     <span class="text-2xl group-hover:scale-110 transition-transform flex-shrink-0">📸</span>
                     <div class="flex flex-col text-left min-w-0">
                         <span class="text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-colors"
-                              :class="postPreviews.length >= 10 ? 'text-rose-500' : 'text-slate-900 dark:text-white'">
+                              :class="postPreviews.length >= 10 ? 'text-rose-500' : 'text-slate-900 dark:text-white'"
+                              x-text="isUploading ? `Загрузка (${uploadedCount}/${totalCount})...` : 'Медиа'">
                             Медиа
                         </span>
                         
                         <span class="text-[8px] sm:text-[9px] font-extrabold tracking-wide leading-tight transition-all"
                             :class="postPreviews.length >= 10 
-                                    ? 'text-rose-400 opacity-100' 
-                                    : (postPreviews.length > 0 ? 'text-brand opacity-100' : 'text-slate-400 dark:text-slate-300 opacity-90')"
-                            x-text="postPreviews.length >= 10 ? 'ЛИМИТ ИСЧЕРПАН' : 'МАКСИМУМ 10 ФОТО'">
+                                     ? 'text-rose-400 opacity-100' 
+                                     : (postPreviews.length > 0 ? 'text-brand opacity-100' : 'text-slate-400 dark:text-slate-300 opacity-90')"
+                            x-text="isUploading ? 'ЗАГРУЗКА МЕДИА...' : (postPreviews.length >= 10 ? 'ЛИМИТ ИСЧЕРПАН' : 'МАКСИМУМ 10 ФОТО')">
                         </span>
                     </div>
                 </div>
@@ -93,17 +102,48 @@
                     <span x-text="postPreviews.length"></span>/10
                 </div>
 
-                <input type="file" name="files" id="post-file-input" multiple accept="image/*" class="hidden"
+                <input type="file" id="post-file-input" multiple accept="image/*" class="hidden"
                        @change="
-                            const rawFiles = Array.from($event.target.files);
-                            if (rawFiles.length > 10) alert('Упс! Только 10 фото.');
-                            const selectedFiles = rawFiles.slice(0, 10);
-                            postPreviews = []; 
-                            selectedFiles.forEach(file => {
-                                const reader = new FileReader();
-                                reader.onload = (e) => { postPreviews = [...postPreviews, e.target.result]; };
-                                reader.readAsDataURL(file);
-                            });
+                            (async () => {
+                                const rawFiles = Array.from($event.target.files);
+                                if (rawFiles.length > 10) alert('Упс! Только 10 фото.');
+                                const selectedFiles = rawFiles.slice(0, 10);
+                                postPreviews = [];
+                                uploadedPaths = [];
+                                if (selectedFiles.length === 0) return;
+                                
+                                isUploading = true;
+                                totalCount = selectedFiles.length;
+                                uploadedCount = 0;
+                                
+                                for (let file of selectedFiles) {
+                                    // Мгновенное локальное превью
+                                    const reader = new FileReader();
+                                    reader.onload = (e) => { postPreviews = [...postPreviews, e.target.result]; };
+                                    reader.readAsDataURL(file);
+                                    
+                                    // Отправка на бэкенд
+                                    const formData = new FormData();
+                                    formData.append('file', file);
+                                    try {
+                                        const res = await fetch('/api/media/upload', {
+                                            method: 'POST',
+                                            body: formData
+                                        });
+                                        if (res.ok) {
+                                            const data = await res.json();
+                                            uploadedPaths = [...uploadedPaths, data.url];
+                                            uploadedCount++;
+                                        } else {
+                                            alert('Ошибка загрузки файла ' + file.name);
+                                        }
+                                    } catch (err) {
+                                        console.error(err);
+                                        alert('Сетевая ошибка при загрузке ' + file.name);
+                                    }
+                                }
+                                isUploading = false;
+                            })();
                        ">
             </label>
 
@@ -122,6 +162,8 @@
         </div>
 
         <button type="submit" 
+                :disabled="isUploading"
+                :class="isUploading ? 'opacity-50 cursor-not-allowed' : ''"
                 class="w-full bg-gradient-to-tr from-brand to-yellow-600 text-white py-5 rounded-2xl font-black hover:scale-[1.01] active:scale-[0.96] transition-all shadow-lg shadow-brand/20 uppercase text-xs tracking-[0.2em] haptic-btn">
             Опубликовать историю
         </button>

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Any, cast, Optional
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Request, Depends, Form, UploadFile, File
+from fastapi import APIRouter, Request, Depends, Form, UploadFile, File, HTTPException
 from fastapi.responses import RedirectResponse
 
 from sqlmodel import Session, select, col
@@ -112,7 +112,8 @@ async def create_post(
     request: Request,
     content: Optional[str] = Form(None),
     is_gift: bool = Form(False),
-    files: List[UploadFile] = File(default=[]), 
+    files: List[UploadFile] = File(default=[]),
+    media_paths: List[str] = Form(default=[]), 
     user_id: int = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -122,7 +123,7 @@ async def create_post(
     user = session.get(User, user_id)
     valid_files = [f for f in files if f.filename and f.filename.strip() != ""]
     
-    if not content and not valid_files:
+    if not content and not valid_files and not media_paths:
         response = RedirectResponse(url="/", status_code=303)
         flash(response, "Добавь хотя бы пару слов или фото! ✨", "info")
         return response
@@ -164,10 +165,18 @@ async def create_post(
         temp_dir = Path(settings.STATIC_PATH) / "uploads" / "temp"
         temp_dir.mkdir(parents=True, exist_ok=True)
         
-        for index, file in enumerate(files):
-            if not file.filename or file.filename == "": 
-                continue
-            
+        # 1. Добавляем предзагруженные медиафайлы
+        for index, path in enumerate(media_paths):
+            img_entry = PostImage(
+                url=path,
+                post_id=new_post.id,
+                position=index
+            )
+            session.add(img_entry)
+
+        # 2. Добавляем традиционно загруженные файлы
+        offset = len(media_paths)
+        for index, file in enumerate(valid_files):
             filename = f"{uuid.uuid4().hex}.webp"
             target_path = upload_path / filename
             
@@ -185,11 +194,24 @@ async def create_post(
             img_entry = PostImage(
                 url=f"/static/uploads/posts/{filename}", 
                 post_id=new_post.id,
-                position=index
+                position=offset + index
             )
             session.add(img_entry)
         
-        session.commit() 
+        session.commit()
+
+        # Атомарный лог аудита для мгновенного отображения в панели администратора
+        if user:
+            from app.models import AuditLog
+            new_audit = AuditLog(
+                user_id=user.id,
+                action="POST_CREATE",
+                details=f"Пользователь {user.username} опубликовал новую историю (ID: {new_post.id})",
+                is_error=False
+            )
+            session.add(new_audit)
+            session.commit()
+
         log_action(str(user_id), "POST_CREATE", f"ID: {new_post.id}")
 
         # Фоновый запуск рассылки пуш-уведомлений (всем кроме автора)
@@ -357,3 +379,37 @@ async def edit_post(
         flash(response, "Не удалось сохранить правки", "error")
 
     return response
+
+@router.post("/api/media/upload")
+async def upload_media(
+    file: UploadFile = File(...),
+    user_id: int = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Предварительная загрузка медиафайла со стороны клиента с асинхронным сжатием Celery"""
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Необходимо авторизоваться")
+        
+    if not file.filename or file.filename.strip() == "":
+        raise HTTPException(status_code=400, detail="Файл не выбран")
+        
+    upload_path = Path(settings.POSTS_PATH).resolve()
+    upload_path.mkdir(parents=True, exist_ok=True)
+    
+    temp_dir = Path(settings.STATIC_PATH) / "uploads" / "temp"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    
+    filename = f"{uuid.uuid4().hex}.webp"
+    target_path = upload_path / filename
+    
+    temp_filename = f"{uuid.uuid4().hex}"
+    temp_path = temp_dir / temp_filename
+    
+    with open(temp_path, "wb") as f_temp:
+        f_temp.write(await file.read())
+        
+    from app.core.celery_app import process_image_task
+    process_image_task.delay(str(temp_path), str(target_path))
+    
+    url_path = f"/static/uploads/posts/{filename}"
+    return {"status": "success", "url": url_path}
