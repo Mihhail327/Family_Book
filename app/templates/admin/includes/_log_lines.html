@@ -1,0 +1,9 @@
+{% for log in logs %}
+<div class="flex gap-3 hover:bg-white/5 p-1 rounded">
+    <span class="text-slate-500">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '' }}</span>
+    <span class="font-bold uppercase {% if log.is_error or 'ERR' in log.action or 'FAIL' in log.action or 'SECURITY' in log.action %}text-rose-400{% else %}text-emerald-400{% endif %}">
+        [{{ log.action }}]
+    </span>
+    <span class="text-slate-300">{{ log.details }}</span>
+</div>
+{% endfor %}

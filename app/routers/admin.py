@@ -13,6 +13,7 @@ from app.security import get_current_user, validate_security_input
 from app.logger import log_action
 from app.core.templates import templates
 from app.config import settings
+from fastapi.responses import HTMLResponse
 
 router = APIRouter(tags=["Admin"])
 
@@ -102,6 +103,21 @@ async def get_system_logs(
     """Последние 100 логов для терминала"""
     statement = select(AuditLog).order_by(col(AuditLog.id).desc()).limit(limit)
     return session.exec(statement).all()
+
+@router.get("/logs/stream", response_class=HTMLResponse)
+async def stream_logs(
+    request: Request,
+    session: Session = Depends(get_session),
+    _: User = Depends(admin_required)
+):
+    """Последние 40 логов в виде HTML для HTMX поллинга"""
+    statement = select(AuditLog).order_by(col(AuditLog.created_at).desc()).limit(40)
+    logs = session.exec(statement).all()
+    return templates.TemplateResponse(
+        request=request,
+        name="admin/includes/_log_lines.html",
+        context={"logs": logs}
+    )
 
 # --- РАССЫЛКА И ДАШБОРД ---
 
