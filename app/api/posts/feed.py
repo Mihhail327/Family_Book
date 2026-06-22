@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Any, cast, Optional
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Request, Depends, Form, UploadFile, File, HTTPException
+from fastapi import APIRouter, Request, Depends, Form, UploadFile, File, HTTPException, Response
 from fastapi.responses import RedirectResponse
 
 from sqlmodel import Session, select, col
@@ -297,10 +297,13 @@ async def delete_post(
     post = session.get(Post, post_id)
     user = session.get(User, user_id)
     res = RedirectResponse("/", status_code=303)
-    if request.headers.get("HX-Request") or request.headers.get("hx-request"):
-        res.headers["HX-Redirect"] = "/"
 
     if not post or not user:
+        if request.headers.get("HX-Request") or request.headers.get("hx-request"):
+            response = Response(status_code=200)
+            response.headers["HX-Refresh"] = "true"
+            flash(response, "История не найдена", "error")
+            return response
         flash(res, "История не найдена", "error")
         return res
 
@@ -316,6 +319,12 @@ async def delete_post(
                 level="SECURITY"
             )
         
+        if request.headers.get("HX-Request") or request.headers.get("hx-request"):
+            response = Response(status_code=200)
+            response.headers["HX-Refresh"] = "true"
+            flash(response, "У тебя нет прав для удаления этой истории!", "error")
+            return response
+
         flash(res, "У тебя нет прав для удаления этой истории!", "error")
         return res
 
@@ -330,6 +339,13 @@ async def delete_post(
 
     session.delete(post)
     session.commit()
+
+    if request.headers.get("HX-Request") or request.headers.get("hx-request"):
+        response = Response(status_code=200)
+        response.headers["HX-Refresh"] = "true"
+        flash(response, "Пост удален навсегда 🗑️", "success")
+        return response
+
     flash(res, "Пост удален навсегда 🗑️", "success")
     return res
 

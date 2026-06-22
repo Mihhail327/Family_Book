@@ -188,8 +188,8 @@ def test_delete_post(client: TestClient, session: Session, test_user: User):
         headers={"HX-Request": "true"}
     )
     
-    assert response.status_code == 303
-    assert response.headers.get("HX-Redirect") == "/"
+    assert response.status_code == 200
+    assert response.headers.get("HX-Refresh") == "true"
 
     session.expire_all()
     deleted_post = session.get(Post, post_id)
