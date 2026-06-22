@@ -5,7 +5,7 @@ from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlmodel import Session
 
 from app.database import get_session
-from app.models import Comment, Post
+from app.models import Comment, Post, User
 from app.security import get_current_user, validate_security_input
 from app.logger import log_error
 from app.utils.flash import flash
@@ -19,18 +19,21 @@ router = APIRouter()
 async def load_comments(
     post_id: int, 
     request: Request, 
+    user_id: Optional[int] = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     post = session.get(Post, post_id)
     if not post:
         return HTMLResponse("<div class='p-4 text-slate-500 text-sm'>Пост не найден</div>")
     
+    user = session.get(User, user_id) if user_id else None
+    
     # 🟢 HTMX всегда просит фрагмент. 
     # Если зайти просто браузером, мы тоже отдадим этот фрагмент (это ок для отладки)
     return templates.TemplateResponse(
         request=request,
         name="includes/_comments_list.html",
-        context={"post": post}
+        context={"post": post, "user": user}
     )
 
 @router.post("/posts/{post_id}/comment")
@@ -77,10 +80,11 @@ async def create_comment(
         if request.headers.get("HX-Request"):
             session.refresh(new_comment) 
             post = session.get(Post, post_id)
+            user = session.get(User, user_id) if user_id else None
             return templates.TemplateResponse(
                 request=request,
                 name="includes/_comments_list.html", 
-                context={"post": post}
+                context={"post": post, "user": user}
             )
             
         flash(response, "Комментарий добавлен", "success")

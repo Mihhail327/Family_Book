@@ -116,6 +116,34 @@ app.add_middleware(
 )
 
 @app.middleware("http")
+async def user_injection_middleware(request: Request, call_next):
+    if request.url.path.startswith("/static") or request.url.path == "/debug-test":
+        request.state.user = None
+        return await call_next(request)
+    try:
+        user_id = get_current_user(request)
+        if user_id:
+            from app.models import User
+            with Session(engine) as session:
+                user = session.get(User, user_id)
+                if user:
+                    session.expunge(user)
+                    request.state.user = user
+                else:
+                    request.state.user = None
+        else:
+            request.state.user = None
+    except Exception as e:
+        log_error("MIDDLEWARE_USER_ERR", str(e))
+        request.state.user = None
+    return await call_next(request)
+
+def inject_user(request: Request):
+    return {"user": getattr(request.state, "user", None)}
+
+templates.context_processors.append(inject_user)
+
+@app.middleware("http")
 async def sentinel_middleware(request: Request, call_next):
     if request.url.path.startswith("/static") or request.url.path == "/debug-test":
         return await call_next(request)
