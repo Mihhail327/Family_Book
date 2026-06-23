@@ -333,6 +333,30 @@ document.body.addEventListener('htmx:confirm', function(evt) {
     }));
 });
 
+// Haptic feedback for HTMX requests (POST / DELETE)
+document.body.addEventListener('htmx:afterRequest', function(evt) {
+    const status = evt.detail.xhr.status;
+    const method = evt.detail.requestConfig.method.toUpperCase();
+    if (status >= 200 && status < 300 && (method === 'POST' || method === 'DELETE')) {
+        if (navigator.vibrate) {
+            navigator.vibrate(30);
+        }
+    }
+});
+
+{% if user %}
+// Auto subscribe to Push Notifications on login
+document.addEventListener('DOMContentLoaded', () => {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+        setTimeout(() => {
+            if (typeof subscribeToPushNotifications === 'function') {
+                subscribeToPushNotifications().catch(e => console.error("Push subscription failed:", e));
+            }
+        }, 1000);
+    }
+});
+{% endif %}
+
 </script>
 </body>
 </html>

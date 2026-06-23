@@ -5,7 +5,7 @@ let lastNotificationId = null;
 if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
         navigator.serviceWorker
-            .register("/static/sw.js")
+            .register("/sw.js")
             .then(() => console.log("🛡️ SW активирован"))
             .catch((err) => console.error("❌ PWA Error:", err));
     });
