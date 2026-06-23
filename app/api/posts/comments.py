@@ -76,6 +76,36 @@ async def create_comment(
         session.add(new_comment)
         session.commit()
         
+        # Trigger notification after comment is saved successfully
+        post = session.get(Post, post_id)
+        if post and post.author_id != user_id:
+            commenter = session.get(User, user_id)
+            commenter_name = commenter.display_name if commenter else "Пользователь"
+            
+            from app.services.notification import create_system_notification, deliver_push_notifications
+            
+            # 1. Create database notification (and broadcast via websocket)
+            await create_system_notification(
+                session=session,
+                title="Новый комментарий! 💬",
+                message=f"Пользователь {commenter_name} прокомментировал вашу историю!",
+                user_id=post.author_id,
+                category="info",
+                link=f"/posts/{post.id}"
+            )
+            
+            # 2. Deliver Web Push notification
+            import asyncio
+            asyncio.create_task(
+                deliver_push_notifications(
+                    session=session,
+                    user_id=post.author_id,
+                    title="Новый комментарий! 💬",
+                    message=f"Пользователь {commenter_name} прокомментировал вашу историю!",
+                    link=f"/posts/{post.id}"
+                )
+            )
+        
         # 🟢 МАГИЯ HTMX: Если запрос пришел от HTMX, не редиректим!
         if request.headers.get("HX-Request"):
             session.refresh(new_comment) 

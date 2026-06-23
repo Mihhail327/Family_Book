@@ -171,3 +171,51 @@ async def deliver_push_notifications(
             if ex.response is not None and ex.response.status_code in [404, 410]:
                 session.delete(sub)
                 session.commit()
+
+@router.get("/notifications")
+async def get_notifications(
+    user_id: int = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Получить список всех уведомлений для текущего пользователя"""
+    if not user_id:
+        return []
+    
+    statement = select(Notification).where(
+        Notification.user_id == user_id
+    ).order_by(col(Notification.created_at).desc()).limit(50)
+    
+    notifications = session.exec(statement).all()
+    
+    return [
+        {
+            "id": n.id,
+            "title": n.title,
+            "message": n.message,
+            "category": n.category,
+            "is_read": n.is_read,
+            "created_at": n.created_at.isoformat() if n.created_at else None,
+            "link": n.link
+        }
+        for n in notifications
+    ]
+
+@router.post("/notifications/mark-read")
+async def mark_notifications_as_read(
+    user_id: int = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Пометить все уведомления пользователя как прочитанные"""
+    if not user_id:
+        return {"status": "success"}
+    
+    statement = select(Notification).where(
+        Notification.user_id == user_id,
+        Notification.is_read == False
+    )
+    unread_notifications = session.exec(statement).all()
+    for notif in unread_notifications:
+        notif.is_read = True
+        session.add(notif)
+    session.commit()
+    return {"status": "success"}

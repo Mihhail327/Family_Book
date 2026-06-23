@@ -19,6 +19,7 @@ from app.routers import admin
 from app.core.templates import templates
 from app.security import get_current_user
 from app.services.notifier import bot_alert, manager
+from app.services import notification
 
 # --- 1. ПРОВЕРКИ ---
 print(f"🔍 Ищу файл тут: {os.path.join(str(STATIC_DIR), 'app.js')}")
@@ -119,6 +120,7 @@ app.add_middleware(
 async def user_injection_middleware(request: Request, call_next):
     if request.url.path.startswith("/static") or request.url.path == "/debug-test":
         request.state.user = None
+        request.state.unread_notifications_count = 0
         return await call_next(request)
     try:
         user_id = get_current_user(request)
@@ -127,19 +129,33 @@ async def user_injection_middleware(request: Request, call_next):
             with Session(engine) as session:
                 user = session.get(User, user_id)
                 if user:
+                    from sqlmodel import select, func
+                    from app.models import Notification
+                    unread_count = session.exec(
+                        select(func.count(Notification.id))
+                        .where(Notification.user_id == user.id, Notification.is_read == False)
+                    ).first() or 0
+                    request.state.unread_notifications_count = unread_count
+                    
                     session.expunge(user)
                     request.state.user = user
                 else:
                     request.state.user = None
+                    request.state.unread_notifications_count = 0
         else:
             request.state.user = None
+            request.state.unread_notifications_count = 0
     except Exception as e:
         log_error("MIDDLEWARE_USER_ERR", str(e))
         request.state.user = None
+        request.state.unread_notifications_count = 0
     return await call_next(request)
 
 def inject_user(request: Request):
-    return {"user": getattr(request.state, "user", None)}
+    return {
+        "user": getattr(request.state, "user", None),
+        "unread_notifications_count": getattr(request.state, "unread_notifications_count", 0)
+    }
 
 templates.context_processors.append(inject_user)
 
@@ -235,6 +251,7 @@ app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 app.include_router(posts.router, tags=["Posts"])
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(family.router, prefix="/auth", tags=["Family"])
+app.include_router(notification.router)
 
 @app.get("/login", include_in_schema=False)
 async def redirect_old_login(): return RedirectResponse(url="/auth/login", status_code=301)

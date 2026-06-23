@@ -223,3 +223,70 @@ def test_delete_post_from_detail_page(client: TestClient, session: Session, test
     session.expire_all()
     deleted_post = session.get(Post, post_id)
     assert deleted_post is None
+
+
+def test_comment_on_another_user_post_triggers_notification(client: TestClient, session: Session, test_user: User):
+    # Create another user (the author of the post)
+    other_user = User(username="other_author", display_name="Other Author", hashed_password="123")
+    session.add(other_user)
+    session.commit()
+    session.refresh(other_user)
+
+    # other_user creates a post
+    post = Post(content="История другого автора", author_id=other_user.id)
+    session.add(post)
+    session.commit()
+    session.refresh(post)
+
+    # We authorize the client as test_user
+    authorize_client(client, test_user.id)
+
+    # test_user comments on other_user's post
+    response = client.post(
+        f"/posts/{post.id}/comment",
+        data={"content": "Отличная история!"},
+        headers={"HX-Request": "true"}
+    )
+    assert response.status_code == 200
+
+    # Verify that a Notification was created for other_user
+    session.expire_all()
+    from app.models import Notification
+    notifications = session.exec(
+        select(Notification).where(Notification.user_id == other_user.id)
+    ).all()
+    assert len(notifications) == 1
+    notification = notifications[0]
+    assert notification.category == "info"
+    assert "прокомментировал вашу историю" in notification.message
+    assert notification.link == f"/posts/{post.id}"
+
+
+def test_get_and_mark_read_notifications(client: TestClient, session: Session, test_user: User):
+    # Create some notifications for test_user
+    from app.models import Notification
+    n1 = Notification(user_id=test_user.id, title="Title 1", message="Msg 1", category="info", is_read=False)
+    n2 = Notification(user_id=test_user.id, title="Title 2", message="Msg 2", category="success", is_read=False)
+    session.add(n1)
+    session.add(n2)
+    session.commit()
+
+    authorize_client(client, test_user.id)
+
+    # 1. Fetch notifications
+    response = client.get("/push/notifications")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    assert data[0]["title"] == "Title 2" # Sorted desc by date/id
+    assert data[0]["is_read"] is False
+
+    # 2. Mark them as read
+    response_read = client.post("/push/notifications/mark-read")
+    assert response_read.status_code == 200
+    assert response_read.json() == {"status": "success"}
+
+    # 3. Verify in DB
+    session.expire_all()
+    db_notifs = session.exec(select(Notification).where(Notification.user_id == test_user.id)).all()
+    assert all(n.is_read is True for n in db_notifs)
