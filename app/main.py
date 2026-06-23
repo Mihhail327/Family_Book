@@ -129,12 +129,24 @@ async def user_injection_middleware(request: Request, call_next):
             with Session(engine) as session:
                 user = session.get(User, user_id)
                 if user:
-                    from sqlmodel import select, func
-                    from app.models import Notification
-                    unread_count = session.exec(
-                        select(func.count(Notification.id))
-                        .where(Notification.user_id == user.id, Notification.is_read == False)
-                    ).first() or 0
+                    from app.core.redis import redis_client
+                    redis_key = f"user:{user.id}:unread_notifications_count"
+                    cached_val = await redis_client.get(redis_key)
+                    
+                    if cached_val is not None:
+                        try:
+                            unread_count = int(cached_val)
+                        except (ValueError, TypeError):
+                            unread_count = 0
+                    else:
+                        from sqlmodel import select, func
+                        from app.models import Notification
+                        unread_count = session.exec(
+                            select(func.count(Notification.id))
+                            .where(Notification.user_id == user.id, Notification.is_read == False)
+                        ).first() or 0
+                        await redis_client.set(redis_key, str(unread_count), ex=86400)
+                    
                     request.state.unread_notifications_count = unread_count
                     
                     session.expunge(user)

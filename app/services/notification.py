@@ -48,6 +48,18 @@ async def create_system_notification(
         
         session.commit()
 
+        # Redis synchronization: Increment count for warmed-up caches
+        from app.core.redis import redis_client
+        if user_id:
+            redis_key = f"user:{user_id}:unread_notifications_count"
+            if await redis_client.exists(redis_key):
+                await redis_client.incr(redis_key)
+        else:
+            for uid in user_ids:
+                redis_key = f"user:{uid}:unread_notifications_count"
+                if await redis_client.exists(redis_key):
+                    await redis_client.incr(redis_key)
+
         # --- 2. ЖИВОЕ УВЕДОМЛЕНИЕ (WebSocket) ---
         payload = {
             "title": title,
@@ -218,4 +230,9 @@ async def mark_notifications_as_read(
         notif.is_read = True
         session.add(notif)
     session.commit()
+    
+    # Reset count in Redis
+    from app.core.redis import redis_client
+    await redis_client.set(f"user:{user_id}:unread_notifications_count", "0")
+    
     return {"status": "success"}

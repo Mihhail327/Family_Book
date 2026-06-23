@@ -5,16 +5,24 @@ from fastapi.testclient import TestClient
 from sqlmodel import SQLModel, Session, create_engine
 from sqlalchemy.pool import StaticPool
 
+# --- ⚙️ ОКРУЖЕНИЕ ---
+from app.config import settings
+settings.ENV = "testing"
+
+from sqlmodel import create_engine
+from sqlalchemy.pool import StaticPool
+sqlite_url = "sqlite:///:memory:"
+engine = create_engine(sqlite_url, connect_args={"check_same_thread": False}, poolclass=StaticPool)
+
 from app.main import app
+import app.database as app_db
+import app.main as app_main
+app_db.engine = engine
+app_main.engine = engine
+
 from app.database import get_session
 from app.models import User
 from app.security import hash_password, create_jwt_token
-from app.config import settings
-
-# --- ⚙️ ОКРУЖЕНИЕ ---
-settings.ENV = "testing"
-sqlite_url = "sqlite:///:memory:"
-engine = create_engine(sqlite_url, connect_args={"check_same_thread": False}, poolclass=StaticPool)
 
 @pytest.fixture(autouse=True)
 def mock_bot_alert():

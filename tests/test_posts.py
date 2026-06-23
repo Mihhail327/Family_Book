@@ -263,6 +263,15 @@ def test_comment_on_another_user_post_triggers_notification(client: TestClient, 
 
 
 def test_get_and_mark_read_notifications(client: TestClient, session: Session, test_user: User):
+    import asyncio
+    from app.core.redis import redis_client
+    
+    # Clear fake Redis data to isolate test state
+    if hasattr(redis_client, "_fake"):
+        redis_client._fake._data.clear()
+        
+    redis_key = f"user:{test_user.id}:unread_notifications_count"
+    
     # Create some notifications for test_user
     from app.models import Notification
     n1 = Notification(user_id=test_user.id, title="Title 1", message="Msg 1", category="info", is_read=False)
@@ -273,7 +282,10 @@ def test_get_and_mark_read_notifications(client: TestClient, session: Session, t
 
     authorize_client(client, test_user.id)
 
-    # 1. Fetch notifications
+    # Redis key shouldn't exist initially
+    assert asyncio.run(redis_client.get(redis_key)) is None
+
+    # 1. Fetch notifications - triggers middleware which warms up cache
     response = client.get("/push/notifications")
     assert response.status_code == 200
     data = response.json()
@@ -281,10 +293,31 @@ def test_get_and_mark_read_notifications(client: TestClient, session: Session, t
     assert data[0]["title"] == "Title 2" # Sorted desc by date/id
     assert data[0]["is_read"] is False
 
+    # Redis key should be warmed up by the middleware to 2
+    val = asyncio.run(redis_client.get(redis_key))
+    assert val == b"2"
+
+    # Now, creating a notification for test_user should atomically increment it
+    from app.services.notification import create_system_notification
+    asyncio.run(create_system_notification(
+        session=session,
+        title="Title 3",
+        message="Msg 3",
+        user_id=test_user.id,
+        category="info"
+    ))
+    
+    val = asyncio.run(redis_client.get(redis_key))
+    assert val == b"3"
+
     # 2. Mark them as read
     response_read = client.post("/push/notifications/mark-read")
     assert response_read.status_code == 200
     assert response_read.json() == {"status": "success"}
+
+    # Redis key should be set to "0"
+    val = asyncio.run(redis_client.get(redis_key))
+    assert val == b"0"
 
     # 3. Verify in DB
     session.expire_all()
