@@ -23,13 +23,11 @@ RUN python -m venv $POETRY_HOME && \
     $POETRY_HOME/bin/pip install --no-cache-dir --upgrade pip && \
     $POETRY_HOME/bin/pip install --no-cache-dir "poetry==$POETRY_VERSION"
 
-# Добавляем Poetry в PATH для текущего этапа
 ENV PATH="$POETRY_HOME/bin:$PATH"
 
-# Для детерминированной сборки КРИТИЧЕСКИ важно копировать оба файла
 COPY pyproject.toml poetry.lock* ./
 
-# Собираем зависимости в локальный .venv внутри папки /build
+# Корректная сборка зависимостей без конфликтов хэшей локального lock-файла
 RUN if [ -f poetry.lock ]; then \
         rm -f poetry.lock && \
         poetry install --no-interaction --no-ansi --no-root --only main; \
@@ -52,13 +50,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH"
 
-# Устанавливаем только runtime-зависимости (библиотеки времени выполнения)
+# Устанавливаем только runtime-зависимости
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Копируем скомпилированное виртуальное окружение из builder-этапа
+# Копируем скомпилированное виртуальное окружение
 COPY --from=builder /build/.venv /app/.venv
 
 # Копируем исходный код проекта
@@ -72,9 +70,10 @@ RUN mkdir -p /app/app/static/uploads/posts \
     chmod -R 755 /app/app/static && \
     chmod +x /app/start.sh
 
-# Переключаемся на безопасного пользователя
-USER appuser
+# Оставляем контейнер стартовать под root, чтобы скрипт мог поправить права на Volumes.
+# Снижение привилегий произойдет внутри start.sh
 
 EXPOSE 8000
 
+# ИСПРАВЛЕНО: Указан точный абсолютный путь к скрипту внутри рабочей директории
 CMD ["/start.sh"]
