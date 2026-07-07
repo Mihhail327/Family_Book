@@ -31,9 +31,10 @@ COPY pyproject.toml poetry.lock* ./
 
 # Собираем зависимости в локальный .venv внутри папки /build
 RUN if [ -f poetry.lock ]; then \
-        poetry install --no-interaction --no-ansi --no-root --only main --no-check; \
+        rm -f poetry.lock && \
+        poetry install --no-interaction --no-ansi --no-root --only main; \
     else \
-        poetry install --no-interaction --no-ansi --no-root --only main --no-cache; \
+        poetry install --no-interaction --no-ansi --no-root --only main; \
     fi
 
 # ==========================================
