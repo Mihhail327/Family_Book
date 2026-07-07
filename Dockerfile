@@ -77,4 +77,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["/app/start.sh"]
+CMD ["/start.sh"]
