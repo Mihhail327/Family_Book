@@ -76,4 +76,4 @@ RUN mkdir -p /app/app/static/uploads/posts \
 EXPOSE 8000
 
 # Запускаем миграции и сервер в один проход через bash-контекст пользователя appuser
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "/app/.venv/bin/alembic upgrade head && exec /app/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000"]
