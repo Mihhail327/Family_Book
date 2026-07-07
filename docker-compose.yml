@@ -1,8 +1,5 @@
 version: '3.8'
 
-# Docstrings in English (Google Style), Comments in Russian
-# Архитектура: Изолированные сети + жесткие лимиты Celery для предотвращения OOM
-
 networks:
   frontend:
     driver: bridge
@@ -10,9 +7,9 @@ networks:
     internal: true  # Полностью изолированная сеть для Redis и внутренней бизнес-логики
 
 volumes:
-  sqlite_data:      # Использование именованного volume предпочтительнее для деплоя
-  static_uploads:
-  app_logs:
+  sqlite_data:      # Именованный том для персистентности файла БД SQLite
+  static_uploads:   # Именованный том для пользовательского контента (WebP изображения)
+  app_logs:         # Именованный том для ротируемых логов приложения
 
 services:
   web:
@@ -23,9 +20,10 @@ services:
     environment:
       - SQLITE_BUSY_TIMEOUT=5000  # Таймаут ожидания разблокировки DB в мс
     volumes:
-      - ./family_book.db:/app/family_book.db
-      - ./app/static/uploads:/app/app/static/uploads
-      - ./logs:/app/app/logs
+      # Использование именованных томов решает проблему прав (UID 10001 получает доступ на запись)
+      - sqlite_data:/app/db_data
+      - static_uploads:/app/app/static/uploads
+      - app_logs:/app/app/logs
     expose:
       - "8000"
     networks:
@@ -35,13 +33,15 @@ services:
       - redis
 
   nginx:
-    image: nginx:1.25.4-alpine  # Strict SemVer вместо non-deterministic 'latest'
+    image: nginx:1.25.4-alpine
     restart: always
     ports:
-      - "80:80"    # Изменено с 8080:80 для полноценного Certbot HTTP-01 challenge
+      - "80:80"
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Nginx должен читать аплоады из того же тома, куда их складывают web и celery
+      - static_uploads:/app/app/static/uploads:ro
       - ./app/static:/app/app/static:ro
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
@@ -51,15 +51,13 @@ services:
       - web
 
   redis:
-    image: redis:7.2.4-alpine  # Strict SemVer
+    image: redis:7.2.4-alpine
     restart: always
-    # Порты больше не пробрасываются наружу (безопасность дефолтного Redis без пароля)
     networks:
       - backend
 
   celery_worker:
     build: .
-    # Принудительно душим аппетит воркера к RAM, предотвращая утечки при обработке картинок
     command: >
       celery -A app.core.celery_app.celery_instance worker 
       --loglevel=info 
@@ -71,13 +69,14 @@ services:
     environment:
       - SQLITE_BUSY_TIMEOUT=5000
     volumes:
-      - ./family_book.db:/app/family_book.db
-      - ./app/static/uploads:/app/app/static/uploads
-      - ./logs:/app/app/logs
+      # Воркер делит те же самые тома, что гарантирует доступ к файлам
+      - sqlite_data:/app/db_data
+      - static_uploads:/app/app/static/uploads
+      - app_logs:/app/app/logs
     deploy:
       resources:
         limits:
-          memory: 450M  # Жесткий лимит Docker чуть ниже лимита Render (512M) для подстраховки
+          memory: 450M
     networks:
       - backend
     depends_on:
