@@ -40,15 +40,10 @@ RUN if [ -f poetry.lock ]; then \
 # ==========================================
 FROM python:3.13-slim AS runner
 
-# Создаем не-root пользователя для безопасного выполнения процессов
-RUN groupadd -g 10001 appgroup && \
-    useradd -u 10001 -g appgroup -m -s /bin/bash appuser
-
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PATH="/app/.venv/bin:$PATH"
+    PYTHONUNBUFFERED=1
 
 # Устанавливаем только runtime-зависимости
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -60,20 +55,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /build/.venv /app/.venv
 
 # Копируем исходный код проекта
-COPY --chown=appuser:appgroup . .
+COPY . .
 
-# Создаем необходимые директории для статики и логов, выставляя права владения
+# Создаем необходимые директории для статики и логов
 RUN mkdir -p /app/app/static/uploads/posts \
              /app/app/static/uploads/avatars \
              /app/app/logs && \
-    chown -R appuser:appgroup /app/app/static /app/app/logs && \
-    chmod -R 755 /app/app/static && \
-    chmod +x /app/start.sh
-
-# Оставляем контейнер стартовать под root, чтобы скрипт мог поправить права на Volumes.
-# Снижение привилегий произойдет внутри start.sh
+    chmod -R 755 /app/app/static
 
 EXPOSE 8000
 
-# Запускаем миграции и сервер в один проход через bash-контекст пользователя appuser
+# Запуск с явным указанием пути к бинарникам внутри .venv
 CMD ["sh", "-c", "/app/.venv/bin/alembic upgrade head && exec /app/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000"]
