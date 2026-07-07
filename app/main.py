@@ -110,11 +110,15 @@ else:
 # --- 5. MIDDLEWARES ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://family-book-yh93.onrender.com",
+        "http://localhost:8080",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
+
 
 @app.middleware("http")
 async def user_injection_middleware(request: Request, call_next):
@@ -141,10 +145,15 @@ async def user_injection_middleware(request: Request, call_next):
                     else:
                         from sqlmodel import select, func
                         from app.models import Notification
+
                         unread_count = session.exec(
-                            select(func.count(Notification.id))
-                            .where(Notification.user_id == user.id, Notification.is_read == False)
+                            select(func.count(Notification.id)) # type: ignore
+                            .where(
+                                Notification.user_id == user.id,
+                                Notification.is_read.is_(False) # type: ignore
+                            )
                         ).first() or 0
+
                         await redis_client.set(redis_key, str(unread_count), ex=86400)
                     
                     request.state.unread_notifications_count = unread_count
