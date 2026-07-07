@@ -1,11 +1,13 @@
 #!/bin/bash
 set -e
 
-# Накатываем миграции Alembic
-poetry run alembic upgrade head
+# Docstrings in English (Google Style), Comments in Russian
+# Назначение: Скрипт инициализации и запуска веб-слоя приложения
 
-# Фоновый запуск воркера Celery
-poetry run celery -A app.core.celery_app.celery_instance worker --loglevel=info &
+echo "==> Применение миграций базы данных Alembic..."
+alembic upgrade head
 
-# Запуск веб-сервера через exec
-exec poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
+echo "==> Запуск веб-сервера Uvicorn..."
+# Использование exec заменяет текущий процесс bash процессом сервера,
+# позволяя Docker корректно пробрасывать системные сигналы (SIGTERM) для graceful shutdown.
+exec uvicorn app.main:app --host 0.0.0.0 --port 8000
