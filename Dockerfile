@@ -75,5 +75,5 @@ RUN mkdir -p /app/app/static/uploads/posts \
 
 EXPOSE 8000
 
-# ИСПРАВЛЕНО: Указан точный абсолютный путь к скрипту внутри рабочей директории
-CMD ["/start.sh"]
+# Запускаем миграции и сервер в один проход через bash-контекст пользователя appuser
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
