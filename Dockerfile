@@ -1,8 +1,7 @@
 # ==========================================
 # Этап 1: Сборка зависимостей (Builder)
 # ==========================================
-# Используем строгое семантическое версионирование
-FROM python:3.13.2-slim-bookworm AS builder
+FROM python:3.12.3-slim-bookworm AS builder
 
 WORKDIR /build
 
@@ -24,16 +23,14 @@ ENV PATH="$POETRY_HOME/bin:$PATH"
 
 COPY pyproject.toml poetry.lock ./
 
-# Убрано удаление poetry.lock. 
-# Используем контракт, зафиксированный в lock-файле.
+# Контракт: Детальное логирование (-vvv) и установка без создания virtualenv
 RUN poetry config virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi --no-root --only main
+    poetry install -vvv --no-interaction --no-ansi --no-root --only main
 
 # ==========================================
 # Этап 2: Финальный продакшен-образ (Runner)
 # ==========================================
-# Базовый образ строго совпадает с билдером
-FROM python:3.13.2-slim-bookworm AS runner
+FROM python:3.12.3-slim-bookworm AS runner
 
 WORKDIR /app
 
@@ -46,25 +43,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Копируем зависимости
-COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
+# Контракт: Пути жестко привязаны к версии Python 3.12 (Исправлено)
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Создаем непривилегированного пользователя с нужным UID
 RUN groupadd -g 10001 appgroup && \
     useradd -u 10001 -g appgroup -s /bin/bash -m appuser
 
-# Копируем исходный код
 COPY . .
 
-# Создаем папки и передаем права нашему пользователю
 RUN mkdir -p /app/app/static/uploads/posts \
              /app/app/static/uploads/avatars \
              /app/app/logs && \
     chown -R appuser:appgroup /app/app/static /app/app/logs /app/db_data && \
     chmod -R 755 /app/app/static
 
-# Переключаемся на безопасного пользователя
 USER appuser
 
 EXPOSE 8000
