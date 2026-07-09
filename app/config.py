@@ -11,21 +11,21 @@ TEMPLATES_DIR = APP_DIR / "templates"
 UPLOAD_DIR = STATIC_DIR / "uploads"
 AVATARS_DIR = UPLOAD_DIR / "avatars"
 POSTS_DIR = UPLOAD_DIR / "posts"
+DB_DIR = ROOT_DIR / "db_data"
 
-# Создаем папки при импорте конфига
-for folder in [AVATARS_DIR, POSTS_DIR]:
-    folder.mkdir(parents=True, exist_ok=True)
+# УДАЛЕНО: folder.mkdir() — переносится в app/main.py (lifespan)
 
-# Определяем имя файла окружения
 app_mode = os.getenv("APP_MODE", "dev")
 env_file_name = f".env.{app_mode}"
 
 # --- 2. КЛАСС НАСТРОЕК ---
 
 class Settings(BaseSettings):
-    # Окружение (development, production, testing)
+    """
+    Configuration model for the application settings.
+    Validates and loads variables from the environment or .env files.
+    """
     ENV: str = "development"
-
     ROOT_DIR: Path = ROOT_DIR
     
     # Основное
@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     DEFAULT_USER_PASSWORD: str = "1234"
     REGISTRATION_TOKEN: str = "family-invite-only"
 
-    # 🤖 Sentinel Bot Settings
+    # Sentinel Bot Settings
     BOT_TOKEN: str = "666666:your_token_here" 
     ADMIN_CHAT_ID: str = "12345678"
 
@@ -52,8 +52,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     
-    # БД
-    DATABASE_URL: str = "sqlite:///./family_book.db"
+    # БД (Жесткая привязка к персистентному тому)
+    DATABASE_URL: str = f"sqlite:///{DB_DIR}/family_book.db"
     
     # Celery
     CELERY_BROKER_URL: str = "redis://redis:6379/0"
@@ -63,15 +63,13 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE: int = 20 * 1024 * 1024
     ALLOWED_EXTENSIONS: set[str] = {"png", "jpg", "jpeg", "gif", "webp"}
 
-    # Константы путей
-    STATIC_PATH: str = str(STATIC_DIR)
-    TEMPLATES_PATH: str = str(TEMPLATES_DIR)
-    AVATARS_PATH: str = str(STATIC_DIR / "uploads" / "avatars")
-    POSTS_PATH: str = str(STATIC_DIR / "uploads" / "posts")
+    # Переиспользование существующих Path-объектов (DRY)
+    STATIC_PATH: Path = STATIC_DIR
+    TEMPLATES_PATH: Path = TEMPLATES_DIR
+    AVATARS_PATH: Path = AVATARS_DIR
+    POSTS_PATH: Path = POSTS_DIR
 
-    # Единый конфиг для Pydantic
     model_config = SettingsConfigDict(
-        # env_file ищем в корневом каталоге
         env_file=ROOT_DIR / env_file_name, 
         env_file_encoding='utf-8',
         extra='ignore'
@@ -83,10 +81,11 @@ class Settings(BaseSettings):
 
     @property
     def get_database_url(self) -> str:
-        # Фикс для Render/Heroku, которые шлют postgres:// вместо postgresql://
+        """
+        Fixes database URL scheme for specific PaaS providers.
+        """
         if self.DATABASE_URL.startswith("postgres://"):
             return self.DATABASE_URL.replace("postgres://", "postgresql://", 1)
         return self.DATABASE_URL
 
-# Создаем единственный экземпляр
 settings = Settings()
