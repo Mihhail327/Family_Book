@@ -1,7 +1,8 @@
 # ==========================================
 # Этап 1: Сборка зависимостей (Builder)
 # ==========================================
-FROM python:3.13-slim AS builder
+# Используем строгое семантическое версионирование
+FROM python:3.13.2-slim-bookworm AS builder
 
 WORKDIR /build
 
@@ -10,32 +11,29 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     POETRY_VERSION=2.0.1 \
     POETRY_HOME="/opt/poetry"
 
-# Системные зависимости для сборки C-extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libffi-dev \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Установка Poetry
 RUN python -m venv $POETRY_HOME && \
     $POETRY_HOME/bin/pip install --no-cache-dir -U pip "poetry==$POETRY_VERSION"
 
 ENV PATH="$POETRY_HOME/bin:$PATH"
 
-COPY pyproject.toml poetry.lock* ./
+COPY pyproject.toml poetry.lock ./
 
-# КРИТИЧЕСКИЙ ШАГ: Ставим пакеты в глобальную директорию /build/dist-packages
-# чтобы изолировать их и легко скопировать на следующий этап.
-RUN if [ -f poetry.lock ]; then rm -f poetry.lock; fi && \
-    poetry config virtualenvs.create false && \
-    poetry run pip install --no-cache-dir -U pip && \
+# Убрано удаление poetry.lock. 
+# Используем контракт, зафиксированный в lock-файле.
+RUN poetry config virtualenvs.create false && \
     poetry install --no-interaction --no-ansi --no-root --only main
 
 # ==========================================
 # Этап 2: Финальный продакшен-образ (Runner)
 # ==========================================
-FROM python:3.13-slim AS runner
+# Базовый образ строго совпадает с билдером
+FROM python:3.13.2-slim-bookworm AS runner
 
 WORKDIR /app
 
@@ -48,19 +46,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Копируем установленные пакеты напрямую из глобального python-окружения билдера
+# Копируем зависимости
 COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Копируем исходный код проекта
+# Создаем непривилегированного пользователя с нужным UID
+RUN groupadd -g 10001 appgroup && \
+    useradd -u 10001 -g appgroup -s /bin/bash -m appuser
+
+# Копируем исходный код
 COPY . .
 
+# Создаем папки и передаем права нашему пользователю
 RUN mkdir -p /app/app/static/uploads/posts \
              /app/app/static/uploads/avatars \
              /app/app/logs && \
+    chown -R appuser:appgroup /app/app/static /app/app/logs /app/db_data && \
     chmod -R 755 /app/app/static
+
+# Переключаемся на безопасного пользователя
+USER appuser
 
 EXPOSE 8000
 
-# Теперь alembic и uvicorn гарантированно лежат в /usr/local/bin и доступны глобально!
 CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
