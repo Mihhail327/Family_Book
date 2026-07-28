@@ -49,13 +49,11 @@ def test_cleanup_expired_guests(client: TestClient, session: Session):
     session.expire_all()
 
     # 3. ЗАПУСКАЕМ МЕТЛУ
-    # Мокаем os.path.exists и os.remove, чтобы тест не пытался реально удалять файлы с диска
-    with patch("app.services.cleanup.Path") as mock_path_class:
-        # Настраиваем поведение
-        mock_path_class.return_value.exists.return_value = True
-        mock_path_class.return_value.is_file.return_value = True
-        # Магия: любой результат деления (/) тоже будет нашим моком
-        mock_path_class.return_value.__truediv__.return_value = mock_path_class.return_value
+    # Мокаем resolve_static_path, чтобы тест не пытался реально удалять файлы с диска
+    with patch("app.services.cleanup.resolve_static_path") as mock_resolve:
+        mock_file = mock_resolve.return_value
+        mock_file.exists.return_value = True
+        mock_file.is_file.return_value = True
         
         deleted_count = cleanup_expired_guests(session)
 
@@ -70,4 +68,4 @@ def test_cleanup_expired_guests(client: TestClient, session: Session):
     assert session.exec(select(User).where(User.username == "active_guest")).first() is not None
 
     # Убеждаемся, что скрипт дважды попытался удалить файлы (1 аватар + 1 фото в посте)
-    assert mock_path_class.return_value.unlink.call_count == 2
+    assert mock_file.unlink.call_count == 2

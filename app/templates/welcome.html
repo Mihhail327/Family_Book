@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_guest_invite %}Песочница Гостя{% else %}Добро пожаловать{% endif %} | FamilyBook{% endblock %}
+
+{% block content %}
+<div class="min-h-[90vh] w-full flex flex-col items-center justify-center px-4 py-8 relative z-10">
+
+    <!-- HERO SECTION -->
+    <main class="w-full max-w-5xl animate-in fade-in zoom-in duration-700 space-y-12">
+        
+        <div class="glass-card bg-white/40 dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 p-8 sm:p-14 rounded-[3rem] shadow-2xl text-center relative overflow-hidden">
+            <!-- Background Glow -->
+            <div class="absolute -top-24 -left-24 w-72 h-72 bg-brand/20 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -bottom-24 -right-24 w-72 h-72 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+            <!-- Logo & Badge -->
+            <div class="relative z-10">
+                <div class="w-24 h-24 mx-auto bg-gradient-to-br from-brand via-amber-500 to-yellow-600 rounded-[2.5rem] flex items-center justify-center shadow-xl shadow-brand/20 mb-6 transform -rotate-3 hover:rotate-0 transition-transform duration-500">
+                    <span class="text-5xl drop-shadow-md">📖</span>
+                </div>
+
+                {% if is_guest_invite and token %}
+                <!-- GUEST BADGE & TITLE -->
+                <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-black uppercase tracking-widest mb-4">
+                    <span>⌛ Гостевая Песочница (30 Минут)</span>
+                </div>
+
+                <h1 class="text-3xl sm:text-5xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-4 leading-none">
+                    Добро пожаловать в Песочницу!
+                </h1>
+
+                <p class="text-slate-600 dark:text-slate-300 font-medium text-base sm:text-lg max-w-2xl mx-auto leading-relaxed mb-8">
+                    Вы зашли по инвайт-ссылке для гостей. Ознакомьтесь с возможностями и интерфейсом FamilyBook в безопасном 30-минутном демо-режиме.
+                </p>
+
+                <!-- ЕДИНСТВЕННАЯ КНОПКА РЕГИСТРАЦИИ ДЛЯ ГОСТЯ -->
+                <form action="/auth/guest/{{ token }}" method="post" class="space-y-4 max-w-md mx-auto bg-white/60 dark:bg-black/30 p-6 sm:p-8 rounded-3xl border border-emerald-500/30 shadow-xl">
+                    <div class="space-y-2 text-left">
+                        <label class="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 ml-2">Ваше Гостевое Имя</label>
+                        <input type="text" name="display_name" required minlength="2" maxlength="20" placeholder="Например: Александр" 
+                               class="w-full bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-2xl px-5 py-4 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-emerald-500/50 shadow-inner">
+                    </div>
+
+                    <button type="submit" 
+                            class="w-full bg-gradient-to-tr from-emerald-600 to-teal-500 hover:scale-[1.02] text-white font-black py-4 px-8 rounded-2xl transition-all shadow-xl shadow-emerald-600/30 active:scale-[0.98] uppercase tracking-wider text-sm flex items-center justify-center gap-2 haptic-btn">
+                        <span>🚀</span>
+                        <span>Зарегистрироваться в Песочнице</span>
+                    </button>
+                </form>
+
+                {% elif token %}
+
+                <!-- FAMILY / STANDARD INVITE -->
+                <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand/10 dark:bg-brand/20 border border-brand/30 text-brand text-xs font-black uppercase tracking-widest mb-4">
+                    <span>✨ Семейная хроника & Альбом</span>
+                </div>
+
+                <h1 class="text-4xl sm:text-6xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-4 leading-none">
+                    family<span class="text-brand text-5xl sm:text-7xl">book</span>
+                </h1>
+
+                <p class="text-slate-600 dark:text-slate-300 font-medium text-base sm:text-xl max-w-2xl mx-auto leading-relaxed mb-8">
+                    Приватное цифровое пространство для вашей семьи. Сохраняйте фотографии, историю, важные даты и тёплые воспоминания в безопасном месте.
+                </p>
+
+                <!-- Action Buttons -->
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-lg mx-auto">
+                    <a href="/auth/register/{{ token }}?step=form" 
+                       class="w-full sm:w-auto flex-1 bg-gradient-to-tr from-brand to-amber-500 hover:scale-[1.03] text-white font-black py-4 px-8 rounded-2xl transition-all shadow-xl shadow-brand/25 active:scale-[0.98] uppercase tracking-wider text-sm flex items-center justify-center gap-2">
+                        <span>✍️</span>
+                        <span>Представиться Семье</span>
+                    </a>
+
+                    <a href="/auth/login" 
+                       class="w-full sm:w-auto flex-1 bg-white/80 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20 border border-slate-300 dark:border-white/20 text-slate-800 dark:text-white font-bold py-4 px-8 rounded-2xl transition-all shadow-md active:scale-[0.98] uppercase tracking-wider text-sm flex items-center justify-center gap-2">
+                        <span>🔑</span>
+                        <span>Уже есть аккаунт? Войти</span>
+                    </a>
+                </div>
+
+                {% else %}
+
+                <!-- NO TOKEN: LOCKED INVITATION NOTICE -->
+                <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs font-black uppercase tracking-widest mb-4">
+                    <span>🔒 Доступ ограничен</span>
+                </div>
+
+                <h1 class="text-4xl sm:text-6xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-4 leading-none">
+                    family<span class="text-brand text-5xl sm:text-7xl">book</span>
+                </h1>
+
+                <p class="text-slate-600 dark:text-slate-300 font-medium text-base sm:text-lg max-w-2xl mx-auto leading-relaxed mb-6">
+                    Приватное пространство вашей семьи. Зарегистрироваться в Семье или зайти в Песочницу можно <strong>только по пригласительной инвайт-ссылке</strong> от родственников.
+                </p>
+
+                <div class="max-w-md mx-auto p-6 rounded-3xl bg-slate-900/60 border border-white/10 text-center space-y-4">
+                    <a href="/auth/login" 
+                       class="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-tr from-brand to-amber-500 hover:scale-[1.02] text-slate-950 font-black py-4 px-8 rounded-2xl transition-all shadow-lg active:scale-[0.98] uppercase tracking-wider text-sm">
+                        <span>🔑</span>
+                        <span>Войти в существующий аккаунт</span>
+                    </a>
+                </div>
+
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- FEATURES GRID -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Card 1 -->
+            <div class="glass-card bg-white/30 dark:bg-slate-900/40 backdrop-blur-md border border-slate-200/60 dark:border-white/10 p-8 rounded-[2.5rem] shadow-lg hover:border-brand/40 transition-all group">
+                <div class="w-14 h-14 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-110 transition-transform">
+                    📸
+                </div>
+                <h3 class="text-lg font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Живой Фотоальбом</h3>
+                <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
+                    Публикуйте снимки, создавайте описания и делитесь моментами жизни с поддержкой оптимизации изображений.
+                </p>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="glass-card bg-white/30 dark:bg-slate-900/40 backdrop-blur-md border border-slate-200/60 dark:border-white/10 p-8 rounded-[2.5rem] shadow-lg hover:border-brand/40 transition-all group">
+                <div class="w-14 h-14 bg-brand/10 text-brand rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-110 transition-transform">
+                    🗓️
+                </div>
+                <h3 class="text-lg font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Семейный Календарь</h3>
+                <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
+                    Никогда не забудьте про дни рождения, юбилеи и важные семейные праздники благодаря удобному календарю.
+                </p>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="glass-card bg-white/30 dark:bg-slate-900/40 backdrop-blur-md border border-slate-200/60 dark:border-white/10 p-8 rounded-[2.5rem] shadow-lg hover:border-brand/40 transition-all group">
+                <div class="w-14 h-14 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-110 transition-transform">
+                    🛡️
+                </div>
+                <h3 class="text-lg font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Уют & Защита</h3>
+                <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
+                    Только для близких. Никаких чужих людей, сторонней рекламы или утечек данных — всё остаётся в семье.
+                </p>
+            </div>
+        </div>
+
+        <!-- SENIOR FRIENDLY BANNER -->
+        <div class="glass-card bg-gradient-to-r from-amber-500/10 via-brand/10 to-purple-500/10 border border-brand/20 p-8 sm:p-10 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="space-y-2 text-center md:text-left">
+                <div class="flex items-center justify-center md:justify-start gap-2">
+                    <span class="text-2xl">👴👵</span>
+                    <h4 class="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Простота для каждого поколения</h4>
+                </div>
+                <p class="text-slate-600 dark:text-slate-300 text-sm max-w-xl">
+                    Интерфейс спроектирован так, чтобы им было легко пользоваться всем членам семьи — от самых маленьких до бабушек и дедушек.
+                </p>
+            </div>
+            {% if not is_guest_invite %}
+            <a href="/auth/login" class="px-8 py-4 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-lg shrink-0">
+                Присоединиться ➔
+            </a>
+            {% endif %}
+        </div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="mt-12 text-center text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-widest">
+        <p>FamilyBook v{{ settings.VERSION if settings else '4.0.0' }} — Бережно сохраняя семейные традиции ❤️</p>
+    </footer>
+</div>
+{% endblock %}

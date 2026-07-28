@@ -59,3 +59,24 @@ def test_refresh_token_flow(client: TestClient, session: Session):
     # В твоем auth.py refresh возвращает 204 No Content при успехе
     assert refresh_res.status_code == 204
     assert "access_token" in refresh_res.cookies
+
+def test_welcome_page_unauthenticated(client: TestClient):
+    response = client.get("/", follow_redirects=False)
+    assert response.status_code == 200
+    assert "family" in response.text.lower()
+
+def test_welcome_page_direct_route(client: TestClient):
+    response = client.get("/welcome", follow_redirects=False)
+    assert response.status_code == 200
+    assert "family" in response.text.lower()
+
+def test_guest_welcome_page_no_token(client: TestClient):
+    response = client.get("/auth/guest", follow_redirects=False)
+    assert response.status_code == 200
+    assert "family" in response.text.lower()
+
+def test_guest_welcome_page_with_token(client: TestClient):
+    from app.config import settings
+    response = client.get(f"/auth/guest/{settings.REGISTRATION_TOKEN}", follow_redirects=False)
+    assert response.status_code == 200
+    assert "family" in response.text.lower()

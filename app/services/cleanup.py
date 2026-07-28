@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.models import User, Post, PostImage, AuditLog
 from app.logger import log_action, log_error
+from app.utils.images import resolve_static_path
 
 def cleanup_expired_guests(session: Session) -> int:
     """Удаляет просроченных гостей, их аватары и файлы постов."""
@@ -36,13 +37,7 @@ def cleanup_expired_guests(session: Session) -> int:
 
         # 1. Удаляем аватар (если он загружен, а не дефолтный)
         if g.avatar_url and "/uploads/avatars/" in g.avatar_url:
-            # Убираем веб-префикс /static/, если он присутствует в БД
-            url_path = g.avatar_url
-            if url_path.startswith("/static/"):
-                url_path = url_path[len("/static/"):]
-            elif url_path.startswith("static/"):
-                url_path = url_path[len("static/"):]
-            avatar_path = Path(settings.STATIC_PATH) / url_path.lstrip("/")
+            avatar_path = resolve_static_path(g.avatar_url)
             if avatar_path.exists() and avatar_path.is_file():
                 try:
                     avatar_path.unlink()
@@ -55,13 +50,7 @@ def cleanup_expired_guests(session: Session) -> int:
         for post in posts_to_clean:
             images_to_clean: List[PostImage] = post.images
             for img in images_to_clean:
-                # Убираем веб-префикс /static/, если он присутствует в БД
-                url_path = img.url
-                if url_path.startswith("/static/"):
-                    url_path = url_path[len("/static/"):]
-                elif url_path.startswith("static/"):
-                    url_path = url_path[len("static/"):]
-                file_path = Path(settings.STATIC_PATH) / url_path.lstrip("/")
+                file_path = resolve_static_path(img.url)
                 if file_path.exists() and file_path.is_file():
                     try:
                         file_path.unlink()
@@ -98,3 +87,28 @@ def cleanup_old_logs(session: Session) -> int:
         session.rollback()
         log_error("CLEANUP", f"Ошибка при удалении старых логов: {e}")
         return 0
+
+
+def cleanup_stale_temp_files(max_age_hours: int = 1) -> int:
+    """Удаляет временные файлы из uploads/temp, оставшиеся дольше max_age_hours."""
+    temp_dir = Path(settings.STATIC_PATH) / "uploads" / "temp"
+    if not temp_dir.exists():
+        return 0
+
+    count = 0
+    now = datetime.now().timestamp()
+    cutoff = now - (max_age_hours * 3600)
+
+    for item in temp_dir.iterdir():
+        if item.is_file():
+            try:
+                mtime = item.stat().st_mtime
+                if mtime < cutoff:
+                    item.unlink()
+                    count += 1
+            except Exception as e:
+                log_error("CLEANUP_TEMP", f"Не удалось удалить временный файл {item.name}: {e}")
+
+    if count > 0:
+        log_action("SYSTEM_GC", "TEMP_CLEANUP", f"Удалено {count} зависших временных файлов из uploads/temp")
+    return count

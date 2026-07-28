@@ -1,60 +1,92 @@
 {% extends "base.html" %}
 
-{% block title %}Присоединиться | FamilyBook{% endblock %}
+{% block title %}Регистрация | FamilyBook{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-center min-h-[80vh] px-4">
-    <div class="glass-card backdrop-blur-xl p-10 rounded-[3rem] border border-white/10 shadow-2xl w-full max-w-md animate-in fade-in zoom-in duration-500">
+<div class="flex items-center justify-center min-h-[85vh] px-4 py-8 relative z-10">
+    <div class="glass-card bg-slate-900/60 backdrop-blur-2xl p-8 sm:p-12 rounded-[3rem] border border-white/10 shadow-2xl w-full max-w-lg transition-all duration-500 animate-in fade-in zoom-in duration-300">
         
-        <div class="text-center mb-10">
-            <h1 id="page-title" class="text-3xl font-black text-white tracking-tighter uppercase leading-none">Присоединиться</h1>
-            <p id="page-subtitle" class="text-slate-400 text-xs font-bold uppercase tracking-widest mt-4 opacity-70">Добро пожаловать в семейную летопись</p>
+        <!-- HEADER & BACK LINK -->
+        <div class="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
+            <a href="/auth/register/{{ token }}" class="text-xs text-slate-400 hover:text-white font-bold flex items-center gap-1 transition-colors">
+                ← О программе
+            </a>
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand">Вход в Семью</span>
+        </div>
+
+        <div class="text-center mb-6">
+            <div class="w-16 h-16 mx-auto bg-gradient-to-br from-brand to-yellow-600 rounded-2xl flex items-center justify-center shadow-lg shadow-brand/20 mb-4 transform -rotate-3">
+                <span class="text-3xl drop-shadow-md">👤</span>
+            </div>
+            <h2 id="page-title" class="text-2xl font-black text-white tracking-tighter uppercase">Представиться Семье</h2>
+            <p id="page-subtitle" class="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2 opacity-70">Как к вам обращаться в летописи?</p>
         </div>
 
         {% if error %}
-        <div class="bg-rose-500/10 border border-rose-500/30 p-4 rounded-2xl mb-6 animate-pulse">
+        <div class="bg-rose-500/10 border border-rose-500/30 p-4 rounded-2xl mb-6">
             <p class="text-rose-400 text-xs text-center font-bold italic">{{ error }}</p>
         </div>
         {% endif %}
 
-        <form id="join-form" action="/auth/register/{{ token }}" method="post" enctype="multipart/form-data" class="space-y-8">
+        <form id="join-form" action="/auth/register/{{ token }}" method="post" enctype="multipart/form-data" class="space-y-6">
+            <input type="hidden" name="is_guest" value="{{ request.query_params.get('is_guest', 'false') }}">
 
-            <div style="position: absolute; left: - 9999px; width: 1px; height: 1px; overflow: hidden;" aria-hidden="true">
+            <div style="position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden;" aria-hidden="true">
                 <input type="text" name="confirm_email_address" tabindex="-1" autocomplete="off" placeholder="Ваш e-mail">
             </div>
     
-    <div id="avatar-section" class="flex flex-col items-center">
-        <label class="relative cursor-pointer group">
-            <div id="preview-container" class="w-28 h-28 rounded-full bg-white/5 border-2 border-dashed border-white/20 flex items-center justify-center overflow-hidden transition-all group-hover:border-blue-500 group-hover:bg-white/10 shadow-inner">
-                <span id="preview-placeholder" class="text-4xl group-hover:scale-110 transition-transform">👤</span>
-                <img id="avatar-preview" src="#" alt="Preview" class="hidden w-full h-full object-cover">
+            <div id="avatar-section" class="flex flex-col items-center">
+                <label class="relative cursor-pointer group">
+                    <div id="preview-container" class="w-24 h-24 rounded-full bg-white/5 border-2 border-dashed border-white/20 flex items-center justify-center overflow-hidden transition-all group-hover:border-brand group-hover:bg-white/10 shadow-inner">
+                        <span id="preview-placeholder" class="text-3xl group-hover:scale-110 transition-transform">👤</span>
+                        <img id="avatar-preview" src="#" alt="Preview" class="hidden w-full h-full object-cover">
+                    </div>
+                    
+                    <div class="absolute bottom-0 right-0 bg-brand text-slate-950 p-2 rounded-full border-2 border-slate-950 shadow-lg group-hover:scale-110 transition-transform">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4" />
+                        </svg>
+                    </div>
+                    <input type="file" name="avatar" class="hidden" accept="image/*" onchange="handlePreview(event)">
+                </label>
+                <span class="text-[9px] text-slate-400 uppercase font-black mt-3 tracking-[0.2em]">Ваше фото (для Семьи)</span>
             </div>
-            
-            <div class="absolute bottom-1 right-1 bg-blue-600 text-white p-2 rounded-full border-4 border-slate-950 shadow-lg group-hover:scale-110 transition-transform">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4" />
-                </svg>
+
+            <div class="space-y-2">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Ваше имя</label>
+                <input type="text" name="display_name" placeholder="напр. Дядя Ваня" required maxlength="25" minlength="2"
+                    class="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-white placeholder-slate-600 focus:ring-2 focus:ring-brand outline-none transition-all hover:bg-white/10 font-bold">
             </div>
-            <input type="file" name="avatar" class="hidden" accept="image/*" onchange="handlePreview(event)">
-        </label>
-        <span class="text-[9px] text-slate-500 uppercase font-black mt-4 tracking-[0.2em]">Ваше фото (для Семьи)</span>
-    </div>
 
-    <div class="space-y-2">
-        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 ml-4">Как вас зовут?</label>
-        <input type="text" name="display_name" placeholder="напр. Дядя Ваня" required maxlength="25" minlength="2"
-            class="w-full bg-white/5 border border-white/10 p-5 rounded-2xl text-white placeholder-slate-600 focus:ring-2 focus:ring-blue-500 outline-none transition-all hover:bg-white/10">
-    </div>
+            <button id="submit-btn" type="submit" 
+                class="w-full bg-gradient-to-tr from-brand to-amber-500 hover:scale-[1.02] text-slate-950 font-black py-5 rounded-2xl text-base transition-all shadow-xl shadow-brand/20 uppercase tracking-tight haptic-btn">
+                Войти в Семью
+            </button>
+        </form>
 
-    <button id="submit-btn" type="submit" 
-        class="w-full bg-blue-600 text-white py-5 rounded-2xl text-lg font-black hover:bg-blue-500 active:scale-[0.96] transition-all shadow-lg shadow-blue-500/30 uppercase tracking-tight haptic-btn">
-        Войти в Семью
-    </button>
-</form>
+        <div class="mt-8 pt-6 border-t border-white/10 text-center">
+            <a href="/auth/login" class="text-slate-400 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors">
+                Уже зарегистрированы? <span class="text-brand underline">Войти</span>
+            </a>
+        </div>
+
+    </div>
+</div>
+
     </div>
 </div>
 
 <script>
+function showFormStep() {
+    document.getElementById('welcome-step').classList.add('hidden');
+    document.getElementById('form-step').classList.remove('hidden');
+}
+
+function showWelcomeStep() {
+    document.getElementById('form-step').classList.add('hidden');
+    document.getElementById('welcome-step').classList.remove('hidden');
+}
+
 function handlePreview(event) {
     const input = event.target;
     const preview = document.getElementById('avatar-preview');
@@ -74,27 +106,33 @@ function handlePreview(event) {
     }
 }
 
-// 🟢 НОВАЯ ЛОГИКА ДЛЯ ПЕСОЧНИЦЫ
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const isGuest = urlParams.get('is_guest') === 'true';
 
     if (isGuest) {
-        // Меняем путь отправки на гостевой роут
+        // Настройки презентации для песочницы
+        document.getElementById('welcome-badge').innerText = '⏳ Гостевая Песочница (30 минут)';
+        document.getElementById('welcome-badge').classList.remove('bg-blue-500/10', 'border-blue-500/30', 'text-blue-400');
+        document.getElementById('welcome-badge').classList.add('bg-emerald-500/10', 'border-emerald-500/30', 'text-emerald-400');
+        
+        document.getElementById('welcome-subtitle').innerText = 'Безопасный демо-режим. Опробуйте семейные функции, ленту и общение без риска повлиять на основную летопись.';
+
+        const startBtn = document.getElementById('start-btn');
+        startBtn.innerHTML = '<span>Попробовать Демо-режим (30 мин)</span>';
+        startBtn.classList.remove('bg-blue-600', 'hover:bg-blue-500', 'shadow-blue-500/30');
+        startBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'shadow-emerald-500/30');
+
+        // Настройки формы
         document.getElementById('join-form').action = '/auth/guest';
-        
-        // Меняем тексты
         document.getElementById('page-title').innerText = 'Песочница';
-        document.getElementById('page-subtitle').innerText = 'Гостевой демо-доступ на 30 минут';
-        
-        // Скрываем загрузку аватара (гостям дается дефолтный)
+        document.getElementById('page-subtitle').innerText = 'Введите ваше имя для демо-сеанса';
         document.getElementById('avatar-section').style.display = 'none';
-        
-        // Перекрашиваем кнопку в гостевой (синий -> изумрудный)
-        const btn = document.getElementById('submit-btn');
-        btn.innerText = 'Войти как Гость';
-        btn.classList.remove('bg-blue-600', 'hover:bg-blue-500', 'shadow-blue-500/30');
-        btn.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'shadow-emerald-500/30');
+
+        const submitBtn = document.getElementById('submit-btn');
+        submitBtn.innerText = 'Войти как Гость';
+        submitBtn.classList.remove('bg-blue-600', 'hover:bg-blue-500', 'shadow-blue-500/30');
+        submitBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'shadow-emerald-500/30');
     }
 });
 </script>

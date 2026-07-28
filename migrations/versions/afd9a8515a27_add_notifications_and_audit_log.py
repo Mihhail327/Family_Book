@@ -56,9 +56,10 @@ def upgrade() -> None:
         )
 
     # Проверим, есть ли колонка push_token в таблице user
-    user_columns = [col['name'] for col in inspector.get_columns('user')]
-    if 'push_token' not in user_columns:
-        op.add_column('user', sa.Column('push_token', sqlmodel.sql.sqltypes.AutoString(), nullable=True)) # type: ignore
+    if 'user' in existing_tables:
+        user_columns = [col['name'] for col in inspector.get_columns('user')]
+        if 'push_token' not in user_columns:
+            op.add_column('user', sa.Column('push_token', sqlmodel.sql.sqltypes.AutoString(), nullable=True)) # type: ignore
     # ### end Alembic commands ###
 
 

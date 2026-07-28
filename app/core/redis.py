@@ -41,17 +41,16 @@ class ResilientRedis:
         self._redis = None
         self._use_fake = False
         
-        if settings.ENV == "testing":
-            self._use_fake = True
-            return
-
-        # Setup primary redis client
         url = settings.CELERY_BROKER_URL
         self._urls = [url]
         if "redis://redis" in url:
             self._urls.append(url.replace("redis://redis", "redis://localhost"))
-        
         self._current_url_index = 0
+
+        if settings.ENV == "testing":
+            self._use_fake = True
+            return
+        
         self._init_client()
 
     def _init_client(self):
@@ -61,48 +60,51 @@ class ResilientRedis:
         else:
             self._use_fake = True
 
+    def _next_client(self):
+        self._current_url_index += 1
+        if self._current_url_index >= len(self._urls):
+            self._use_fake = True
+        else:
+            self._init_client()
+
     async def get(self, key: str):
-        if self._use_fake:
+        if self._use_fake or not self._redis:
             return await self._fake.get(key)
         try:
             return await self._redis.get(key)
         except (RedisError, ConnectionError, OSError) as e:
-            logger.warning(f"Redis get error: {e}. Falling back or trying next host.")
-            self._current_url_index += 1
-            self._init_client()
+            logger.warning(f"Redis get error: {e}. Falling back to next client/fake.")
+            self._next_client()
             return await self.get(key)
 
     async def set(self, key: str, value: str, ex: int = None):
-        if self._use_fake:
+        if self._use_fake or not self._redis:
             return await self._fake.set(key, value, ex)
         try:
             return await self._redis.set(key, value, ex=ex)
         except (RedisError, ConnectionError, OSError) as e:
-            logger.warning(f"Redis set error: {e}. Falling back or trying next host.")
-            self._current_url_index += 1
-            self._init_client()
+            logger.warning(f"Redis set error: {e}. Falling back to next client/fake.")
+            self._next_client()
             return await self.set(key, value, ex)
 
     async def incr(self, key: str):
-        if self._use_fake:
+        if self._use_fake or not self._redis:
             return await self._fake.incr(key)
         try:
             return await self._redis.incr(key)
         except (RedisError, ConnectionError, OSError) as e:
-            logger.warning(f"Redis incr error: {e}. Falling back or trying next host.")
-            self._current_url_index += 1
-            self._init_client()
+            logger.warning(f"Redis incr error: {e}. Falling back to next client/fake.")
+            self._next_client()
             return await self.incr(key)
 
     async def exists(self, key: str) -> int:
-        if self._use_fake:
+        if self._use_fake or not self._redis:
             return await self._fake.exists(key)
         try:
             return await self._redis.exists(key)
         except (RedisError, ConnectionError, OSError) as e:
-            logger.warning(f"Redis exists error: {e}. Falling back or trying next host.")
-            self._current_url_index += 1
-            self._init_client()
+            logger.warning(f"Redis exists error: {e}. Falling back to next client/fake.")
+            self._next_client()
             return await self.exists(key)
 
 redis_client = ResilientRedis()

@@ -76,7 +76,8 @@ class ConnectionManager:
             for connection in connections:
                 try:
                     await connection.send_json(data)
-                except Exception:
+                except Exception as e:
+                    log_error("WS_SEND", f"User {user_id}: {e}")
                     continue
         else:
             # Отправляем всем авторизованным пользователям
@@ -84,13 +85,15 @@ class ConnectionManager:
                 for connection in connections_list:
                     try:
                         await connection.send_json(data)
-                    except Exception:
+                    except Exception as e:
+                        log_error("WS_BROADCAST", str(e))
                         continue
             # И всем анонимным/гостевым сессиям
             for connection in self.anonymous_connections:
                 try:
                     await connection.send_json(data)
-                except Exception:
+                except Exception as e:
+                    log_error("WS_ANON_BROADCAST", str(e))
                     continue
 
 # --- ИНИЦИАЛИЗАЦИЯ (Экспортируем оба инструмента) ---

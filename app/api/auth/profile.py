@@ -83,6 +83,13 @@ async def update_avatar(
                 final_filename = os.path.basename(actual_saved_path)
                 user.avatar_url = f"/static/uploads/avatars/{final_filename}"
                 
+                from app.models import AuditLog
+                audit = AuditLog(
+                    user_id=user.id,
+                    action="AVATAR_UPDATE",
+                    details=f"Пользователь {user.display_name} обновил фото профиля ({final_filename})"
+                )
+                session.add(audit)
                 session.add(user)
                 session.commit()
                 flash(res, "Твое новое фото успешно сохранено!", "success")
@@ -120,7 +127,15 @@ async def update_name(
         return res
 
     if new_name:
+        old_name = user.display_name
         user.display_name = new_name
+        from app.models import AuditLog
+        audit = AuditLog(
+            user_id=user.id,
+            action="NAME_UPDATE",
+            details=f"Смена имени с '{old_name}' на '{new_name}'"
+        )
+        session.add(audit)
         session.add(user)
         session.commit()
         flash(res, f"Имя успешно изменено на {new_name}!", "success")

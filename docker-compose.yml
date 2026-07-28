@@ -1,5 +1,3 @@
-version: '3.8'
-
 networks:
   frontend:
     driver: bridge
@@ -20,10 +18,9 @@ services:
     environment:
       - SQLITE_BUSY_TIMEOUT=5000  # Таймаут ожидания разблокировки DB в мс
     volumes:
-      # Использование именованных томов решает проблему прав (UID 10001 получает доступ на запись)
-      - sqlite_data:/app/db_data
-      - static_uploads:/app/app/static/uploads
-      - app_logs:/app/app/logs
+      - ./family_book.db:/app/family_book.db
+      - ./app/static/uploads:/app/app/static/uploads
+      - ./logs:/app/app/logs
     expose:
       - "8000"
     networks:
@@ -69,15 +66,8 @@ services:
     environment:
       - SQLITE_BUSY_TIMEOUT=5000
     volumes:
-      # Воркер делит те же самые тома, что гарантирует доступ к файлам
-      - sqlite_data:/app/db_data
-      - static_uploads:/app/app/static/uploads
-      - app_logs:/app/app/logs
-    deploy:
-      resources:
-        limits:
-          memory: 450M
-    networks:
-      - backend
+      - ./family_book.db:/app/family_book.db
+      - ./app/static/uploads:/app/app/static/uploads
+      - ./logs:/app/app/logs
     depends_on:
       - redis

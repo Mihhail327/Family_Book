@@ -48,6 +48,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        SQLModel.metadata.create_all(connection)
         context.configure(
             connection=connection, 
             target_metadata=target_metadata,

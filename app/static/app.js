@@ -5,7 +5,7 @@ let lastNotificationId = null;
 if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
         navigator.serviceWorker
-            .register("/sw.js")
+            .register("/static/sw.js")
             .then(() => console.log("🛡️ SW активирован"))
             .catch((err) => console.error("❌ PWA Error:", err));
     });
@@ -217,3 +217,31 @@ document.addEventListener('pointerdown', (e) => {
         ripple.remove();
     });
 });
+
+// ==========================================
+//  ТАЙМЕР ГОСТЕВОЙ ПЕСОЧНИЦЫ
+// ==========================================
+window.guestTimerComponent = function(expiresAtIso) {
+    return {
+        timeLeftStr: '30:00',
+        showInfoModal: false,
+        timerId: null,
+        initTimer() {
+            if (!expiresAtIso) return;
+            const target = new Date(expiresAtIso).getTime();
+            const update = () => {
+                const now = new Date().getTime();
+                const diff = Math.max(0, Math.floor((target - now) / 1000));
+                const mins = Math.floor(diff / 60);
+                const secs = diff % 60;
+                this.timeLeftStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                if (diff <= 0) {
+                    if (this.timerId) clearInterval(this.timerId);
+                    window.location.href = '/auth/login?expired=true';
+                }
+            };
+            update();
+            this.timerId = setInterval(update, 1000);
+        }
+    };
+};

@@ -6,7 +6,7 @@ from typing import List, Any, cast, Optional
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Request, Depends, Form, UploadFile, File, HTTPException, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 
 from sqlmodel import Session, select, col
 from sqlalchemy.orm import selectinload
@@ -25,10 +25,32 @@ from app.services.notification import deliver_push_notifications
 
 router = APIRouter()
 
+@router.get("/welcome", response_class=HTMLResponse)
+async def welcome_page(request: Request):
+    return templates.TemplateResponse(
+        request=request, 
+        name="welcome.html", 
+        context={
+            "request": request,
+            "token": None,  # nosec B105
+            "PROJECT_NAME": str(settings.PROJECT_NAME),
+            "VERSION": str(settings.VERSION)
+        }
+    )
+
 @router.get("/")
 async def index(request: Request, user_id: int = Depends(get_current_user), session: Session = Depends(get_session)):
     if not user_id: 
-        return RedirectResponse(url="/auth/login", status_code=303)
+        return templates.TemplateResponse(
+            request=request, 
+            name="welcome.html", 
+            context={
+                "request": request,
+                "token": None,  # nosec B105
+                "PROJECT_NAME": str(settings.PROJECT_NAME),
+                "VERSION": str(settings.VERSION)
+            }
+        )
 
     user = session.get(User, user_id)
     if not user:

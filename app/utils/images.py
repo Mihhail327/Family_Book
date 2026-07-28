@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from PIL import Image, ImageOps
 from typing import Optional, Union, BinaryIO
 from app.logger import log_error
@@ -46,3 +47,18 @@ def process_and_save_image(
     except Exception as e:
         log_error("IMAGE_PROCESSING_ERROR", f"Файл {target_path}: {str(e)}")
         return None
+
+def resolve_static_path(url: str) -> Path:
+    """
+    Преобразует произвольный относительный или статический URL медиафайла в абсолютный Path на диске.
+    """
+    from pathlib import Path
+    from app.config import settings
+
+    clean_url = url.strip()
+    if clean_url.startswith("/static/"):
+        clean_url = clean_url[len("/static/"):]
+    elif clean_url.startswith("static/"):
+        clean_url = clean_url[len("static/"):]
+
+    return Path(settings.STATIC_PATH) / clean_url.lstrip("/")

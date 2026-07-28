@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from fastapi import APIRouter, Depends, Form, Request, HTTPException, UploadFile, File
@@ -19,16 +20,28 @@ router = APIRouter()
 
 # --- СТРАНИЦА РЕГИСТРАЦИИ (GET) ---
 @router.get("/register/{token}")
-async def register_page(request: Request, token: str):
+async def register_page(request: Request, token: str, step: Optional[str] = None):
     if token != settings.REGISTRATION_TOKEN:
         raise HTTPException(status_code=404)
     
-    # 🟢 ИСПРАВЛЕНО: Явно указываем имена аргументов!
+    if step == "form":
+        return templates.TemplateResponse(
+            request=request,
+            name="register.html",
+            context={
+                "request": request, 
+                "token": str(token),
+                "PROJECT_NAME": str(settings.PROJECT_NAME),
+                "VERSION": str(settings.VERSION)
+            }
+        )
+
     return templates.TemplateResponse(
-        request=request,            # 1. Запрос
-        name="register.html",       # 2. Имя шаблона
-        context={                   # 3. Словарь с данными
-            "request": request, 
+        request=request,
+        name="welcome.html",
+        context={
+            "request": request,
+            "is_guest_invite": False,
             "token": str(token),
             "PROJECT_NAME": str(settings.PROJECT_NAME),
             "VERSION": str(settings.VERSION)
@@ -41,6 +54,7 @@ async def register(
     request: Request,
     token: str,
     display_name: str = Form(...),
+    is_guest: Optional[str] = Form(None),
     confirm_email_address: str = Form(None), 
     avatar: UploadFile = File(None),
     session: Session = Depends(get_session)
@@ -73,7 +87,7 @@ async def register(
             log_error("SYSTEM", f"Ошибка аватара: {e}")
 
     # --- ЛОГИКА ДЛЯ ГОСТЕЙ ---
-    is_guest_mode = request.query_params.get("is_guest") == "true"
+    is_guest_mode = (request.query_params.get("is_guest") == "true") or (is_guest == "true")
     role = "guest" if is_guest_mode else "user"
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=30) if is_guest_mode else None
 

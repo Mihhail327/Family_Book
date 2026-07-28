@@ -1,7 +1,7 @@
 import re
 import bcrypt
-from fastapi import Request, HTTPException
-from typing import Optional
+from typing import Optional, Union
+from fastapi import Request, WebSocket, HTTPException
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
 from itsdangerous import TimestampSigner
@@ -57,20 +57,27 @@ def decode_jwt_token(token: str) -> Optional[dict]:
     except JWTError:
         return None
     
+from starlette.requests import HTTPConnection
+
 # Получение текущего Юзера
-def get_current_user(request: Request) -> Optional[int]:
+def get_current_user(request: HTTPConnection) -> Optional[int]:
     """
     Универсальное извлечение ID пользователя:
-    1. Ищем JWT в куках (access_token) - для обычных переходов и HTMX
-    2. Ищем JWT в заголовке Authorization (для API/PWA)
-    3. Ищем подписанную сессию (для старых пользователей)
+    1. Ищем JWT в куках (access_token) - для обычных переходов, HTMX и WebSocket
+    2. Ищем JWT в query_params (token) - для WebSocket / PWA клиентов
+    3. Ищем JWT в заголовке Authorization (для API/PWA)
+    4. Ищем подписанную сессию (пользовательскую куку user_session)
     """
-    # --- 1. Пытаемся достать JWT из КУК (самый приоритетный сейчас) ---
-    token = request.cookies.get("access_token")
+    cookies = getattr(request, "cookies", {}) or {}
+    token = cookies.get("access_token")
+
+    if not token and hasattr(request, "query_params"):
+        token = request.query_params.get("token")
     
-    # --- 2. Если в куках нет, смотрим заголовок Authorization ---
+    # --- 2. Если в куках/параметрах нет, смотрим заголовок Authorization ---
     if not token:
-        auth_header = request.headers.get("Authorization")
+        headers = getattr(request, "headers", {}) or {}
+        auth_header = headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ")[1]
 
@@ -84,7 +91,7 @@ def get_current_user(request: Request) -> Optional[int]:
                 pass
 
     # --- 3. Если JWT нет совсем, ищем старую подписанную куку (Session) ---
-    session_token = request.cookies.get("user_session")
+    session_token = cookies.get("user_session")
     if session_token:
         try:
             # max_age=1209600 (14 дней)

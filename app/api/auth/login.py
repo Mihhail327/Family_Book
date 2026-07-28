@@ -73,7 +73,7 @@ async def login_page(request: Request):
 
 
 @router.post("/login")
-async def login(display_name: str = Form(...), session: Session = Depends(get_session)):
+async def login(request: Request, display_name: str = Form(...), session: Session = Depends(get_session)):
     name = display_name.strip()
     user = session.exec(select(User).where(User.display_name == name)).first()
 
@@ -85,16 +85,36 @@ async def login(display_name: str = Form(...), session: Session = Depends(get_se
     res = RedirectResponse("/", status_code=303)
     flash(res, f"Рады видеть тебя, {user.display_name}!", "success")
 
-    # ✅ Вот правильная и безопасная запись для линтера
     if user.id is not None:
         set_auth_cookies(res, user.id)
+        from app.models import AuditLog
+        from app.services.notifier import bot_alert
+        client_ip = request.client.host if request.client else "127.0.0.1"
+        audit = AuditLog(
+            user_id=user.id,
+            action="USER_LOGIN",
+            details=f"Вход в систему: {user.display_name} (@{user.username})",
+            ip_address=client_ip
+        )
+        session.add(audit)
+        session.commit()
+
+        if settings.ENV != "testing":
+            try:
+                import asyncio
+                asyncio.create_task(bot_alert.send_alert(
+                    f"🔑 **USER LOGIN**\n👤 {user.display_name} (@{user.username})\n🌐 IP: `{client_ip}`",
+                    level="INFO"
+                ))
+            except Exception as e:
+                log_error("LOGIN_BOT_ALERT", str(e))
 
     return res
 
 
 @router.get("/logout")
 async def logout():
-    res = RedirectResponse("/auth/login", status_code=303)
+    res = RedirectResponse("/", status_code=303)
     # Удаляем все следы пользователя
     res.delete_cookie("user_session", path="/")
     res.delete_cookie("access_token", path="/")
