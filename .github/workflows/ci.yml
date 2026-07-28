@@ -1,0 +1,64 @@
+name: FamilyBook CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint-and-test:
+    name: 🧪 Run Linters & Pytest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: 🚀 Install Poetry
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+
+      - name: 📥 Cache Poetry dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
+      - name: 📦 Install project dependencies
+        run: |
+          poetry install --no-interaction
+
+      - name: 🛡️ Security Lint (Bandit)
+        run: |
+          poetry run bandit -r app/
+
+      - name: 🧪 Run Pytest test suite
+        env:
+          ENV: "testing"
+          SECRET_KEY: "ci_cd_test_secret_key_family_book"
+          ADMIN_PASSWORD: "test"
+          REGISTRATION_TOKEN: "vR2_nZ7"
+        run: |
+          poetry run pytest -v tests/
+
+  docker-build:
+    name: 🐳 Docker Build Verification
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+
+    steps:
+      - name: 📦 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Build Docker Image
+        run: |
+          docker build -t familybook:latest .
