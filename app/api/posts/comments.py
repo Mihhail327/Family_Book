@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from typing import Optional
 from fastapi import APIRouter, Depends, Form, Request, HTTPException, Response
 from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlmodel import Session
@@ -19,7 +18,7 @@ router = APIRouter()
 async def load_comments(
     post_id: int, 
     request: Request, 
-    user_id: Optional[int] = Depends(get_current_user),
+    user_id: int | None = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     post = session.get(Post, post_id)
@@ -41,7 +40,7 @@ async def create_comment(
     post_id: int,
     request: Request,
     content: str = Form(...),
-    parent_id: Optional[int] = Form(None),
+    parent_id: int | None = Form(None),
     user_id: int = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):

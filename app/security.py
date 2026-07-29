@@ -1,7 +1,6 @@
 import re
 import bcrypt
-from typing import Optional, Union
-from fastapi import Request, WebSocket, HTTPException
+from fastapi import HTTPException
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
 from itsdangerous import TimestampSigner
@@ -48,7 +47,7 @@ def create_jwt_token(data: dict, expires_delta: timedelta):
     # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Приводим алгоритм и ключ к строке явно
     return jwt.encode(to_encode, str(settings.SECRET_KEY), algorithm="HS256")
 
-def decode_jwt_token(token: str) -> Optional[dict]:
+def decode_jwt_token(token: str) -> dict | None:
     """Декодирует и проверяет токен"""
     try:
         # jose сама выкинет JWTError, если токен протух (exp истек)
@@ -60,7 +59,7 @@ def decode_jwt_token(token: str) -> Optional[dict]:
 from starlette.requests import HTTPConnection
 
 # Получение текущего Юзера
-def get_current_user(request: HTTPConnection) -> Optional[int]:
+def get_current_user(request: HTTPConnection) -> int | None:
     """
     Универсальное извлечение ID пользователя:
     1. Ищем JWT в куках (access_token) - для обычных переходов, HTMX и WebSocket

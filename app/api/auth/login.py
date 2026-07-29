@@ -78,6 +78,26 @@ async def login(request: Request, display_name: str = Form(...), session: Sessio
     user = session.exec(select(User).where(User.display_name == name)).first()
 
     if not user:
+        client_ip = request.client.host if request.client else "127.0.0.1"
+        from app.models import AuditLog
+        from app.services.notifier import bot_alert
+        audit = AuditLog(
+            user_id=None,
+            action="FAILED_LOGIN_ATTEMPT",
+            details=f"Неудачная попытка входа под именем: '{name}'",
+            ip_address=client_ip
+        )
+        session.add(audit)
+        session.commit()
+        if settings.ENV != "testing":
+            try:
+                import asyncio
+                asyncio.create_task(bot_alert.send_alert(
+                    f"🛡️ **SECURITY: FAILED LOGIN**\n📍 Неизвестное имя: `{name}`\n🌐 IP: `{client_ip}`",
+                    level="SECURITY"
+                ))
+            except Exception:  # noqa: BLE001
+                pass
         res = RedirectResponse("/auth/login", status_code=303)
         flash(res, "Семья тебя не узнала. Проверь имя или обратись за инвайтом!", "error")
         return res

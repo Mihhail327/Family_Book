@@ -12,6 +12,35 @@ if ("serviceWorker" in navigator) {
 }
 
 // ==========================================
+//  PWA УСТАНОВКА (INSTALL PROMPT)
+// ==========================================
+let deferredPwaPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPwaPrompt = e;
+    console.log('📲 PWA приложение готово к установке!');
+});
+
+window.installPWA = async function() {
+    if (deferredPwaPrompt) {
+        deferredPwaPrompt.prompt();
+        const { outcome } = await deferredPwaPrompt.userChoice;
+        console.log(`Результат установки PWA: ${outcome}`);
+        deferredPwaPrompt = null;
+    } else {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        if (isIOS) {
+            alert('Для установки FamilyBook на iPhone/iPad:\n\n1. Нажмите кнопку «Поделиться» ⎋ в меню браузера\n2. Выберите «На экран «Домой»» ➕');
+        } else if (window.matchMedia('(display-mode: standalone)').matches) {
+            alert('Приложение FamilyBook уже установлено и работает в автономном режиме! ✨');
+        } else {
+            alert('Для установки открывайте сайт через поддержанный браузер (Chrome / Edge / Safari / Opera) или добавьте страницу на главный экран в меню браузера.');
+        }
+    }
+};
+
+// ==========================================
 //  ГЛОБАЛЬНАЯ ТАКТИЛЬНОСТЬ (Haptics)
 // ==========================================
 document.addEventListener('click', (e) => {
@@ -198,7 +227,7 @@ document.addEventListener('pointerdown', (e) => {
     if (!btn) return;
 
     // Взрываем волну только на реакциях, лайках и кнопках с обратной связью
-    const isTarget = btn.classList.contains('haptic-btn') || btn.closest('.group/likebtn') || btn.tagName === 'BUTTON';
+    const isTarget = btn.classList.contains('haptic-btn') || btn.closest('.group\\/likebtn') || btn.tagName === 'BUTTON';
     if (!isTarget) return;
 
     const ripple = document.createElement('span');

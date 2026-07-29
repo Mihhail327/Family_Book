@@ -38,7 +38,7 @@ def process_image_task(temp_file_path: str, target_file_path: str):
             
     except Exception as e:
         from app.logger import log_error
-        log_error("CELERY_IMAGE_TASK_ERR", f"Ошибка обработки: {str(e)}")
+        log_error("CELERY_IMAGE_TASK_ERR", f"Ошибка обработки: {e!s}")
     finally:
         # Всегда удаляем временный файл, чтобы не засорять диск
         if os.path.exists(temp_file_path):

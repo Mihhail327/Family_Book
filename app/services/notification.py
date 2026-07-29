@@ -6,7 +6,6 @@ from sqlmodel import Session, select, col
 from app.database import get_session
 from app.security import get_current_user
 from app.models import Notification, User, PushSubscription
-from typing import Optional
 from app.services.notifier import manager 
 from app.config import settings
 from pywebpush import webpush, WebPushException
@@ -17,9 +16,9 @@ async def create_system_notification(
     session: Session,
     title: str,
     message: str,
-    user_id: Optional[int] = None,
+    user_id: int | None = None,
     category: str = "info",
-    link: Optional[str] = None,
+    link: str | None = None,
     is_broadcast: bool = False
 ):
     try:
@@ -35,7 +34,7 @@ async def create_system_notification(
             session.add(new_note)
         else:
             # Массовая рассылка (всем кроме гостей)
-            statement = select(User.id).where(col(User.is_guest) == False)  # noqa: E712
+            statement = select(User.id).where(col(User.is_guest) == False)
             user_ids = session.exec(statement).all()
             for uid in user_ids:
                 session.add(Notification(
@@ -126,8 +125,7 @@ async def subscribe_user(
 def _send_single_push(sub_dict: dict, payload_data: dict):
     """Синхронный вызов pywebpush"""
     email = settings.VAPID_CLAIM_EMAIL
-    if email.startswith("mailto:"):
-        email = email[len("mailto:"):]
+    email = email.removeprefix("mailto:")
     webpush(
         subscription_info=sub_dict,
         data=json.dumps(payload_data),
@@ -137,11 +135,11 @@ def _send_single_push(sub_dict: dict, payload_data: dict):
 
 async def deliver_push_notifications(
     session: Session,
-    user_id: Optional[int],
+    user_id: int | None,
     title: str,
     message: str,
-    link: Optional[str] = None,
-    exclude_user_id: Optional[int] = None
+    link: str | None = None,
+    exclude_user_id: int | None = None
 ):
     """Фоновая отправка push-уведомлений"""
     if not settings.VAPID_PRIVATE_KEY or not settings.VAPID_CLAIM_EMAIL:

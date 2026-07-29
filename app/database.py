@@ -1,4 +1,4 @@
-from typing import Generator
+from collections.abc import Generator
 from sqlmodel import SQLModel, create_engine, Session, select
 from sqlalchemy import event 
 from sqlalchemy.engine import Engine 

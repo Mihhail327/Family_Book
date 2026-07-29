@@ -98,6 +98,7 @@
                 {% else %} h-40 sm:h-48 {% endif %}">
                 
                 <img src="{{ img.url }}" 
+                     onerror="this.onerror=null; this.src='/static/default_avatar.png'; this.classList.add('opacity-40');"
                      @click="$dispatch('open-zoom', { src: '{{ img.url }}', all: [{% for i in post.images %}'{{ i.url }}'{% if not loop.last %},{% endif %}{% endfor %}] })"
                      class="w-full h-full object-cover cursor-zoom-in hover:scale-110 transition-all duration-700" 
                      loading="lazy" />

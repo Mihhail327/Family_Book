@@ -32,7 +32,7 @@ def test_create_and_read_post(client: TestClient, session: Session, test_user: U
     assert post.content == "Первая тестовая история в Family_Book!"
 
 
-@patch("app.core.celery_app.process_and_save_image", return_value=True)
+@patch("app.api.posts.feed.process_and_save_image", return_value="dummy.webp")
 def test_create_post_with_mocked_image(
     mock_process, client: TestClient, session: Session, test_user: User
 ):
@@ -150,16 +150,15 @@ def test_nested_comments_and_deletion(client: TestClient, session: Session, test
     assert deleted_child is None
 
 
-@patch("app.core.celery_app.process_image_task.delay", return_value=None)
-def test_pre_upload_media(mock_delay, client: TestClient, session: Session, test_user: User):
+def test_pre_upload_media(client: TestClient, session: Session, test_user: User):
     authorize_client(client, test_user.id) # type: ignore
     
-    fake_file = io.BytesIO(b"another_fake_image_bytes")
-    fake_file.name = "vacation.jpg"
+    fake_file = io.BytesIO(b"GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;")
+    fake_file.name = "vacation.gif"
     
     response = client.post(
         "/api/media/upload",
-        files=[("file", (fake_file.name, fake_file, "image/jpeg"))]
+        files=[("file", (fake_file.name, fake_file, "image/gif"))]
     )
     
     assert response.status_code == 200
@@ -168,7 +167,6 @@ def test_pre_upload_media(mock_delay, client: TestClient, session: Session, test
     assert "url" in data
     assert data["url"].startswith("/static/uploads/posts/")
     assert data["url"].endswith(".webp")
-    mock_delay.assert_called()
 
 
 def test_delete_post(client: TestClient, session: Session, test_user: User):

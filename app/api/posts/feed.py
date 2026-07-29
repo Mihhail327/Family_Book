@@ -2,7 +2,6 @@ import os
 import uuid
 import asyncio
 from pathlib import Path
-from typing import List, Any, cast, Optional
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Request, Depends, Form, UploadFile, File, HTTPException, Response
@@ -16,9 +15,10 @@ from app.models import Post, PostLike, User, PostImage, Comment
 # ДОБАВЛЕНО: validate_security_input для защиты от XSS
 from app.security import get_current_user, validate_security_input 
 from app.logger import log_action, log_error
-from app.utils.images import process_and_save_image
 from app.config import settings
 from app.utils.flash import flash
+from starlette.concurrency import run_in_threadpool
+from app.utils.images import process_and_save_image
 from app.core.templates import templates
 from app.services.notifier import bot_alert
 from app.services.notification import deliver_push_notifications
@@ -75,11 +75,11 @@ async def index(request: Request, user_id: int = Depends(get_current_user), sess
         statement = statement.join(User, Post.author_id == User.id) # type: ignore
 
         if user.is_guest:
-            # Добавляем # noqa: E712, чтобы Ruff не просил убрать "== True"
-            statement = statement.where(User.is_guest == True) # noqa: E712
+            # Добавляем
+            statement = statement.where(User.is_guest == True)
         else:
-            # Добавляем # noqa: E712, чтобы Ruff не просил использовать "not"
-            statement = statement.where(User.is_guest == False) # noqa: E712
+            # Добавляем
+            statement = statement.where(User.is_guest == False)
 
         statement = statement.order_by(col(Post.created_at).desc())
         posts = session.exec(statement).all()
@@ -104,7 +104,7 @@ async def index(request: Request, user_id: int = Depends(get_current_user), sess
 
         # 3. Создаем карту {post_id: reaction_type}
         # ВАЖНО: Приводим l.post_id к int для гарантии совпадения
-        likes_map = {int(l.post_id): l.reaction_type for l in user_likes_in_db}  # noqa: E741
+        likes_map = {int(l.post_id): l.reaction_type for l in user_likes_in_db}
 
         print(f"--- СТАТИСТИКА ДЛЯ ЮЗЕРА ID: {current_uid} ---")
         print(f"Найдено лайков в базе: {len(user_likes_in_db)}")
@@ -132,10 +132,10 @@ async def index(request: Request, user_id: int = Depends(get_current_user), sess
 @router.post("/posts/create")
 async def create_post(
     request: Request,
-    content: Optional[str] = Form(None),
+    content: str | None = Form(None),
     is_gift: bool = Form(False),
-    files: List[UploadFile] = File(default=[]),
-    media_paths: List[str] = Form(default=[]), 
+    files: list[UploadFile] = File(default=[]),
+    media_paths: list[str] = Form(default=[]), 
     user_id: int = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -176,7 +176,7 @@ async def create_post(
             content=safe_content, author_id=user_id, is_gift=is_gift,
             is_opened=not is_gift, created_at=datetime.now(timezone.utc)
         )
-        session.add(new_post); session.flush()  # noqa: E702
+        session.add(new_post); session.flush()
         
         if new_post.id is None:
             raise Exception("Не удалось получить ID поста")
@@ -202,19 +202,15 @@ async def create_post(
             filename = f"{uuid.uuid4().hex}.webp"
             target_path = upload_path / filename
             
-            # Сохраняем временный исходник на диск
-            temp_filename = f"{uuid.uuid4().hex}"
-            temp_path = temp_dir / temp_filename
-            
-            with open(temp_path, "wb") as f_temp:
-                f_temp.write(await file.read())
-            
-            # Отправляем в Celery только строковые пути
-            from app.core.celery_app import process_image_task
-            process_image_task.delay(str(temp_path), str(target_path))
+            # Сжимаем и сохраняем в WebP через threadpool (гарантирует наличие файла ДО ответа клиненту)
+            def _save_webp(f_obj, t_path):
+                return process_and_save_image(f_obj, str(t_path))
+                
+            actual_saved_path = await run_in_threadpool(_save_webp, file.file, target_path)
+            saved_filename = os.path.basename(actual_saved_path) if actual_saved_path else filename
             
             img_entry = PostImage(
-                url=f"/static/uploads/posts/{filename}", 
+                url=f"/static/uploads/posts/{saved_filename}", 
                 post_id=new_post.id,
                 position=offset + index
             )
@@ -314,7 +310,7 @@ async def delete_post(
     post_id: int, request: Request, 
     user_id: int = Depends(get_current_user), session: Session = Depends(get_session)
 ):
-    if not user_id: return RedirectResponse(url="/login", status_code=303)  # noqa: E701
+    if not user_id: return RedirectResponse(url="/login", status_code=303)
         
     post = session.get(Post, post_id)
     user = session.get(User, user_id)
@@ -447,14 +443,13 @@ async def upload_media(
     filename = f"{uuid.uuid4().hex}.webp"
     target_path = upload_path / filename
     
-    temp_filename = f"{uuid.uuid4().hex}"
-    temp_path = temp_dir / temp_filename
-    
-    with open(temp_path, "wb") as f_temp:
-        f_temp.write(await file.read())
+    def _save():
+        return process_and_save_image(file.file, str(target_path))
         
-    from app.core.celery_app import process_image_task
-    process_image_task.delay(str(temp_path), str(target_path))
-    
-    url_path = f"/static/uploads/posts/{filename}"
+    actual_path = await run_in_threadpool(_save)
+    if not actual_path:
+        raise HTTPException(status_code=500, detail="Ошибка сжатия изображения")
+        
+    final_filename = os.path.basename(actual_path)
+    url_path = f"/static/uploads/posts/{final_filename}"
     return {"status": "success", "url": url_path}

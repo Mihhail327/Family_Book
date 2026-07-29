@@ -9,17 +9,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select, func, extract, col
 
 # Глобальные импорты на уровне модуля для оптимизации производительности
-from app.models import User, Notification, Event
+from app.models import User, Notification, Event, AuditLog
 from app.routers import family, admin
 from app.config import STATIC_DIR, settings
 from app.database import engine, get_session
 from app.api import auth, posts
-from app.logger import log_action, log_error
+from app.logger import log_action, log_error, log_exception, format_exception_details
 from app.services.cleanup import cleanup_expired_guests, cleanup_old_logs, cleanup_stale_temp_files
 from app.core.templates import templates
 from app.security import get_current_user
 from app.services.notifier import bot_alert, manager
 from app.services import notification
+
+from starlette.concurrency import run_in_threadpool
 
 # --- 1. ПРОВЕРКИ ---
 print(f"🔍 Ищу файл тут: {os.path.join(str(STATIC_DIR), 'app.js')}")
@@ -31,22 +33,26 @@ async def periodic_guest_cleanup():
         try:
             await asyncio.sleep(60)
             if settings.ENV != "testing":
-                with Session(engine) as session:
-                    cleanup_expired_guests(session)
-                    cleanup_stale_temp_files()
+                def _do_cleanup():
+                    with Session(engine) as session:
+                        cleanup_expired_guests(session)
+                        cleanup_stale_temp_files()
+                await run_in_threadpool(_do_cleanup)
         except asyncio.CancelledError:
             break
         except Exception as e:  # noqa: BLE001
             log_error("PERIODIC_CLEANUP_ERR", str(e))
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         print(f"\n--- 🛠 СТАРТ FAMILY_BOOK {settings.VERSION} ---")
-        # create_db_and_tables() # Раскомментируй только если не используешь Alembic
-        with Session(engine) as session:
-            cleanup_expired_guests(session)
-            cleanup_old_logs(session)
-            cleanup_stale_temp_files()
+        def _do_startup_cleanup():
+            with Session(engine) as session:
+                cleanup_expired_guests(session)
+                cleanup_old_logs(session)
+                cleanup_stale_temp_files()
+        await run_in_threadpool(_do_startup_cleanup)
         log_action("SYSTEM", "STARTUP", f"Сервер запущен v{settings.VERSION}")
     except Exception as e:  # noqa: BLE001
         log_error("STARTUP", str(e))
@@ -80,64 +86,71 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept"],
 )
 
+def _fetch_user_context(user_id: int):
+    from datetime import datetime, timezone
+    with Session(engine) as session:
+        user = session.get(User, user_id)
+        if not user:
+            return None, 0, False
+        if user.is_guest and user.expires_at:
+            now_utc = datetime.now(timezone.utc)
+            exp_utc = user.expires_at if user.expires_at.tzinfo else user.expires_at.replace(tzinfo=timezone.utc)
+            if exp_utc < now_utc:
+                cleanup_expired_guests(session)
+                return None, 0, True
+
+        unread_count = session.exec(
+            select(func.count())
+            .where(
+                Notification.user_id == user.id,
+                col(Notification.is_read) == False
+            )
+        ).first() or 0
+        session.expunge(user)
+        return user, unread_count, False
+
 @app.middleware("http")
 async def user_injection_middleware(request: Request, call_next):
-    if request.url.path.startswith("/static") or request.url.path.startswith("/ws") or request.url.path == "/debug-test":
+    if request.url.path.startswith("/static") or request.url.path.startswith("/ws") or request.url.path in ("/debug-test", "/health"):
         request.state.user = None
         request.state.unread_notifications_count = 0
         return await call_next(request)
     try:
         user_id = get_current_user(request)
         if user_id:
-            from app.models import User
-            from datetime import datetime, timezone
-            with Session(engine) as session:
-                user = session.get(User, user_id)
+            from app.core.redis import redis_client
+            redis_key = f"user:{user_id}:unread_notifications_count"
+            cached_val = await redis_client.get(redis_key)
+
+            if cached_val is not None:
+                try:
+                    unread_count = int(cached_val)
+                except (ValueError, TypeError):
+                    unread_count = 0
+                def _get_user_only():
+                    with Session(engine) as session:
+                        u = session.get(User, user_id)
+                        if u:
+                            session.expunge(u)
+                        return u
+                user = await run_in_threadpool(_get_user_only)
+                is_expired = False
+            else:
+                user, unread_count, is_expired = await run_in_threadpool(_fetch_user_context, user_id)
                 if user:
-                    # Мгновенная проверка просрочки сессии гостя
-                    if user.is_guest and user.expires_at:
-                        now_utc = datetime.now(timezone.utc)
-                        exp_utc = user.expires_at if user.expires_at.tzinfo else user.expires_at.replace(tzinfo=timezone.utc)
-                        if exp_utc < now_utc:
-                            cleanup_expired_guests(session)
-                            request.state.user = None
-                            request.state.unread_notifications_count = 0
-                            if not request.url.path.startswith("/auth/"):
-                                from app.utils.flash import flash
-                                response = RedirectResponse("/auth/login", status_code=303)
-                                response.delete_cookie("user_session", path="/")
-                                response.delete_cookie("access_token", path="/")
-                                response.delete_cookie("refresh_token", path="/auth/refresh")
-                                flash(response, "Срок действия демо-доступа (30 минут) истек!", "info")
-                                return response
-                            return await call_next(request)
+                    await redis_client.set(redis_key, str(unread_count), ex=86400)
 
-                    from app.core.redis import redis_client
-                    redis_key = f"user:{user.id}:unread_notifications_count"
-                    cached_val = await redis_client.get(redis_key)
-                    
-                    if cached_val is not None:
-                        try:
-                            unread_count = int(cached_val)
-                        except (ValueError, TypeError):
-                            unread_count = 0
-                    else:
-                        unread_count = session.exec(
-                            select(func.count())
-                            .where(
-                                Notification.user_id == user.id,
-                                col(Notification.is_read) == False
-                            )
-                        ).first() or 0
+            if is_expired and not request.url.path.startswith("/auth/"):
+                from app.utils.flash import flash
+                response = RedirectResponse("/auth/login", status_code=303)
+                response.delete_cookie("user_session", path="/")
+                response.delete_cookie("access_token", path="/")
+                response.delete_cookie("refresh_token", path="/auth/refresh")
+                flash(response, "Срок действия демо-доступа (30 минут) истек!", "info")
+                return response
 
-                        await redis_client.set(redis_key, str(unread_count), ex=86400)
-                    
-                    request.state.unread_notifications_count = unread_count
-                    session.expunge(user)
-                    request.state.user = user
-                else:
-                    request.state.user = None
-                    request.state.unread_notifications_count = 0
+            request.state.user = user
+            request.state.unread_notifications_count = unread_count
         else:
             request.state.user = None
             request.state.unread_notifications_count = 0
@@ -150,7 +163,8 @@ async def user_injection_middleware(request: Request, call_next):
 def inject_user(request: Request):
     return {
         "user": getattr(request.state, "user", None),
-        "unread_notifications_count": getattr(request.state, "unread_notifications_count", 0)
+        "unread_notifications_count": getattr(request.state, "unread_notifications_count", 0),
+        "VERSION": str(settings.VERSION)
     }
 
 templates.context_processors.append(inject_user)
@@ -263,6 +277,10 @@ app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(family.router, prefix="/auth", tags=["Family"])
 app.include_router(notification.router)
 
+@app.get("/health", include_in_schema=False)
+async def health_check():
+    return {"status": "ok", "version": settings.VERSION}
+
 @app.get("/login", include_in_schema=False)
 async def redirect_old_login():
     return RedirectResponse(url="/auth/login", status_code=301)
@@ -282,60 +300,93 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception:  # noqa: BLE001
         manager.disconnect(websocket, user_id=user_id)
 
-# --- 10. ГЛОБАЛЬНЫЙ ОБРАБОТЧИК ОШИБОК ---
-@app.exception_handler(404)
-@app.exception_handler(500)
-async def global_exception_handler(request: Request, exc):
-    # 1. Получаем статус код безопасно
+# --- 10. ГЛОБАЛЬНЫЙ ОБРАБОТЧИК ВСЕХ ОШИБОК (SENTINEL TELEMETRY) ---
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
     status_code = 500
-    try:
-        if hasattr(exc, 'status_code'):
-            status_code = int(exc.status_code)
-        elif hasattr(exc, 'code'): # Для некоторых типов ошибок
-            status_code = int(exc.code)
-    except (ValueError, TypeError):
-        status_code = 500
+    exc_status = getattr(exc, "status_code", None)
+    exc_code = getattr(exc, "code", None)
+    
+    if exc_status is not None:
+        try:
+            status_code = int(exc_status)
+        except (ValueError, TypeError):
+            status_code = 500
+    elif exc_code is not None:
+        try:
+            status_code = int(exc_code)
+        except (ValueError, TypeError):
+            status_code = 500
 
-    # 2. Игнорируем спам от статики (чтобы бот не сходил с ума)
+    # 1. Игнорируем спам от статики и фавикона
     if request.url.path.startswith("/static") or "favicon.ico" in request.url.path:
         try:
             return Response(status_code=status_code)
         except Exception:  # noqa: BLE001
             return Response(status_code=500)
 
-    # 3. Пытаемся узнать, кто «упал»
-    user_info = "Неавторизованный гость"
+    # 2. Извлекаем данные о пользователе и IP
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    user_info = f"Гость ({client_ip})"
+    user_obj = None
+
     try:
         user_id = get_current_user(request)
         if user_id:
-            from app.models import User
-            with Session(engine) as session:
-                user = session.get(User, user_id)
-                if user:
-                    user_info = f"@{user.username} (ID: {user.id})"
+            def _get_user_info():
+                with Session(engine) as session:
+                    u = session.get(User, user_id)
+                    if u:
+                        session.expunge(u)
+                    return u
+            user_obj = await run_in_threadpool(_get_user_info)
+            if user_obj:
+                user_info = f"@{user_obj.username} (ID: {user_obj.id}, Имя: '{user_obj.display_name}', Роль: {user_obj.role})"
     except Exception as e:  # noqa: BLE001
-        log_error("SENTINEL_AUTH_ERR", f"Ошибка получения пользователя в алертах: {e}")
+        log_error("USER_FETCH_ERR", f"Не удалось извлечь контекст пользователя: {e}")
 
-    # 4. Отправляем алерт ТОЛЬКО если это не бесконечный редирект
-    # И если это реально серьезная ошибка (500)
-    if status_code == 500:
+    # 3. Подробный стек-трейс ошибки
+    stack_snippet = format_exception_details(exc)
+    log_exception(f"ROUTE_FAIL [{request.method} {request.url.path}]", exc, user_info=user_info)
+
+    # 4. Сохранение в БД AuditLog (для просмотра администратором в Админ-Панели)
+    if status_code >= 500:
+        def _save_audit_error():
+            with Session(engine) as session:
+                audit = AuditLog(
+                    user_id=user_obj.id if user_obj else None,
+                    action="CRITICAL_ERROR",
+                    details=f"Path: {request.method} {request.url.path} | Error: {type(exc).__name__}: {exc!s} | Stack: {stack_snippet[:150]}",
+                    ip_address=client_ip
+                )
+                session.add(audit)
+                session.commit()
         try:
-            await bot_alert.send_alert(
-                f"🚨 **SENTINEL: CRITICAL ERROR**\n"
-                f"👤 {user_info}\n"
-                f"📂 Path: `{request.url.path}`\n"
-                f"❌ Error: {type(exc).__name__}: {exc!s}" # Добавили само описание ошибки! # type: ignore
-            )
+            await run_in_threadpool(_save_audit_error)
         except Exception as e:  # noqa: BLE001
-            log_error("SENTINEL_ALERT_ERR", f"Не удалось отправить алерт: {e}")
+            log_error("AUDIT_SAVE_ERR", str(e))
 
-    # 5. УМНЫЙ РЕДИРЕКТ: 
-    # Если мы уже на главной и там ошибка — не редиректим (чтобы не было петли)
+    # 5. Telegram-Алерт в бот (с форматированием и стеком)
+    if status_code >= 500 and settings.ENV != "testing":
+        try:
+            message = (
+                f"🚨 **SENTINEL: CRITICAL ERROR (500)**\n\n"
+                f"👤 **Пользователь:** `{user_info}`\n"
+                f"📍 **Маршрут:** `{request.method} {request.url.path}`\n"
+                f"🌐 **Client IP:** `{client_ip}`\n"
+                f"❌ **Ошибка:** `{type(exc).__name__}: {exc!s}`\n\n"
+                f"📜 **Стек-трейс:**\n```python\n{stack_snippet[:500]}\n```"
+            )
+            await bot_alert.send_alert(message, level="CRITICAL")
+        except Exception as alert_err:  # noqa: BLE001
+            log_error("SENTINEL_ALERT_ERR", str(alert_err))
+
+    # 6. Безопасный ответ пользователю
     if request.url.path == "/" or request.url.path == "/auth/login":
         return HTMLResponse(
-            content=f"<h1>Упс! Системная ошибка {status_code}</h1><p>Мы уже чиним. Попробуйте обновить через минуту.</p>", 
+            content=f"<h1>Упс! Системная ошибка {status_code}</h1><p>Мы уже чиним. Попробуйте обновить страницу через минуту.</p>",
             status_code=status_code
         )
-        
-    return RedirectResponse(url="/?error_redirect=true")
+
+    return RedirectResponse(url="/?error_redirect=true", status_code=303)
 

@@ -3,7 +3,6 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select, col
-from typing import List
 from pydantic import BaseModel
 
 from app.database import get_session
@@ -42,7 +41,7 @@ def admin_required(
 
 # --- УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ ---
 
-@router.get("/users", response_model=List[User])
+@router.get("/users", response_model=list[User])
 async def get_all_users(session: Session = Depends(get_session), _: User = Depends(admin_required)):
     return session.exec(select(User)).all()
 

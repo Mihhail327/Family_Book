@@ -1,6 +1,6 @@
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
-from typing import cast, List
+from typing import cast
 from sqlmodel import Session, select, col, delete
 from sqlalchemy.orm import selectinload
 
@@ -46,9 +46,9 @@ def cleanup_expired_guests(session: Session) -> int:
                     log_error("CLEANUP", f"Не удалось удалить аватар {g.avatar_url}: {e}")
 
         # 2. Удаляем картинки из постов (с типизацией для линтера)
-        posts_to_clean: List[Post] = g.posts
+        posts_to_clean: list[Post] = g.posts
         for post in posts_to_clean:
-            images_to_clean: List[PostImage] = post.images
+            images_to_clean: list[PostImage] = post.images
             for img in images_to_clean:
                 file_path = resolve_static_path(img.url)
                 if file_path.exists() and file_path.is_file():

@@ -6,7 +6,6 @@ networks:
 
 volumes:
   sqlite_data:      # Именованный том для персистентности файла БД SQLite
-  static_uploads:   # Именованный том для пользовательского контента (WebP изображения)
   app_logs:         # Именованный том для ротируемых логов приложения
 
 services:
@@ -17,6 +16,12 @@ services:
       - .env.prod
     environment:
       - SQLITE_BUSY_TIMEOUT=5000  # Таймаут ожидания разблокировки DB в мс
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/health\")' || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
     volumes:
       - ./family_book.db:/app/family_book.db
       - ./app/static/uploads:/app/app/static/uploads
@@ -37,15 +42,14 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      # Nginx должен читать аплоады из того же тома, куда их складывают web и celery
-      - static_uploads:/app/app/static/uploads:ro
       - ./app/static:/app/app/static:ro
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
     networks:
       - frontend
     depends_on:
-      - web
+      web:
+        condition: service_healthy
 
   redis:
     image: redis:7.2.4-alpine
@@ -69,5 +73,7 @@ services:
       - ./family_book.db:/app/family_book.db
       - ./app/static/uploads:/app/app/static/uploads
       - ./logs:/app/app/logs
+    networks:
+      - backend
     depends_on:
       - redis

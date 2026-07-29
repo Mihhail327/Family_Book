@@ -7,7 +7,7 @@ WORKDIR /build
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    POETRY_VERSION=2.0.1 \
+    POETRY_VERSION=2.3.3 \
     POETRY_HOME="/opt/poetry"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

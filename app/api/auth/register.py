@@ -1,5 +1,4 @@
 import uuid
-from typing import Optional
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from fastapi import APIRouter, Depends, Form, Request, HTTPException, UploadFile, File
@@ -20,7 +19,7 @@ router = APIRouter()
 
 # --- СТРАНИЦА РЕГИСТРАЦИИ (GET) ---
 @router.get("/register/{token}")
-async def register_page(request: Request, token: str, step: Optional[str] = None):
+async def register_page(request: Request, token: str, step: str | None = None):
     if token != settings.REGISTRATION_TOKEN:
         raise HTTPException(status_code=404)
     
@@ -54,7 +53,7 @@ async def register(
     request: Request,
     token: str,
     display_name: str = Form(...),
-    is_guest: Optional[str] = Form(None),
+    is_guest: str | None = Form(None),
     confirm_email_address: str = Form(None), 
     avatar: UploadFile = File(None),
     session: Session = Depends(get_session)

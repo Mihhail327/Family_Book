@@ -1,5 +1,4 @@
 import httpx
-from typing import List, Optional
 from fastapi import WebSocket
 from app.config import settings
 from app.logger import log_error
@@ -46,11 +45,11 @@ bot_alert = SentinelBot()
 class ConnectionManager:
     def __init__(self):
         # Храним сопоставление user_id -> список сокетов (у одного юзера может быть открыто несколько вкладок/устройств)
-        self.active_connections: dict[int, List[WebSocket]] = {}
+        self.active_connections: dict[int, list[WebSocket]] = {}
         # Список для неавторизованных/гостевых сокетов
-        self.anonymous_connections: List[WebSocket] = []
+        self.anonymous_connections: list[WebSocket] = []
 
-    async def connect(self, websocket: WebSocket, user_id: Optional[int] = None):
+    async def connect(self, websocket: WebSocket, user_id: int | None = None):
         await websocket.accept()
         if user_id is not None:
             if user_id not in self.active_connections:
@@ -59,7 +58,7 @@ class ConnectionManager:
         else:
             self.anonymous_connections.append(websocket)
 
-    def disconnect(self, websocket: WebSocket, user_id: Optional[int] = None):
+    def disconnect(self, websocket: WebSocket, user_id: int | None = None):
         if user_id is not None and user_id in self.active_connections:
             if websocket in self.active_connections[user_id]:
                 self.active_connections[user_id].remove(websocket)
@@ -68,7 +67,7 @@ class ConnectionManager:
         elif websocket in self.anonymous_connections:
             self.anonymous_connections.remove(websocket)
 
-    async def broadcast(self, data: dict, user_id: Optional[int] = None):
+    async def broadcast(self, data: dict, user_id: int | None = None):
         """Отправить сообщение конкретному пользователю или вообще всем, кто онлайн"""
         if user_id is not None:
             # Отправляем только конкретному адресату

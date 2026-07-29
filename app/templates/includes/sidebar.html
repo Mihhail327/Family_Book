@@ -1,4 +1,4 @@
-<header class="md:hidden fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 py-3 bg-slate-100/60 dark:bg-slate-900/60 backdrop-blur-xl border-b border-slate-300/20 dark:border-white/10 shadow-sm">
+<header class="md:hidden fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] bg-slate-100/60 dark:bg-slate-900/60 backdrop-blur-xl border-b border-slate-300/20 dark:border-white/10 shadow-sm">
     <div class="flex items-center gap-2">
         <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-yellow-600 flex items-center justify-center shadow-md">
             <span class="text-white font-bold text-sm">📖</span>
@@ -39,16 +39,18 @@
     </div>
     {% endif %}
 
-    <div class="flex items-center gap-3" x-data="{ notifications: {{ unread_notifications_count or 0 }} }" @new-broadcast.window="notifications = $event.detail.new_count || (notifications + 1)">
-        <button @click="$dispatch('open-notifications'); notifications = 0;" class="relative p-2 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 active:scale-95 transition-all haptic-btn outline-none">
-            <span class="text-lg transition-all duration-500" :class="notifications > 0 ? 'text-brand scale-110 drop-shadow-gold' : 'text-slate-400 opacity-40'">🔔</span>
+    <div class="flex items-center gap-3" x-data="{ notifications: {{ unread_notifications_count or 0 }} }" @new-broadcast.window="notifications = $event.detail.new_count || (notifications + 1)" @notifications-read.window="notifications = 0">
+        <div class="relative overflow-visible">
+            <button @click="$dispatch('open-notifications'); notifications = 0;" class="p-2.5 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 active:scale-95 transition-all haptic-btn outline-none group">
+                <span class="text-xl transition-all duration-500 block" :class="notifications > 0 ? 'text-brand scale-110 drop-shadow-gold animate-bounce-short' : 'text-slate-400 opacity-50 group-hover:opacity-100'">🔔</span>
+            </button>
             <template x-if="notifications > 0">
-                <span class="absolute -top-1 -right-1 flex h-4 w-4">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-4 w-4 bg-brand text-slate-900 text-[8px] font-black flex items-center justify-center border border-white/20" x-text="notifications"></span>
+                <span class="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded-full bg-gradient-to-tr from-brand via-amber-400 to-yellow-300 text-slate-950 text-xs font-black leading-none border-2 border-white dark:border-slate-900 shadow-[0_0_15px_rgba(212,175,55,0.9)] z-30 transition-all pointer-events-none">
+                    <span class="animate-ping absolute inset-0 rounded-full bg-brand opacity-50"></span>
+                    <span class="relative z-10" x-text="notifications"></span>
                 </span>
             </template>
-        </button>
+        </div>
 
         <button @click="darkMode = !darkMode" class="p-2 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 active:scale-95 transition-all text-sm haptic-btn">
             <span x-show="!darkMode">🌙</span>
@@ -61,7 +63,7 @@
     </div>
 </header>
 
-<nav class="fixed bottom-0 left-0 w-full z-[100] md:sticky md:top-0 md:left-0 md:w-64 md:h-screen flex md:flex-col justify-between md:justify-start items-center md:items-stretch px-6 py-3 md:p-6 bg-slate-900/60 md:bg-slate-900/40 backdrop-blur-xl border-t md:border-t-0 md:border-r border-white/10 shadow-2xl transition-all duration-300">
+<nav class="fixed bottom-0 left-0 w-full z-[100] md:sticky md:top-0 md:left-0 md:w-64 md:h-screen flex md:flex-col justify-between md:justify-start items-center md:items-stretch px-6 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] md:p-6 bg-slate-900/60 md:bg-slate-900/40 backdrop-blur-xl border-t md:border-t-0 md:border-r border-white/10 shadow-2xl transition-all duration-300">
     
     <div class="hidden md:flex flex-col mb-6 pl-2 cursor-default">
         <div class="flex items-center gap-3">
@@ -156,21 +158,21 @@
         
         <div x-data="{ notifications: {{ unread_notifications_count or 0 }} }" 
      @new-broadcast.window="notifications = $event.detail.new_count || (notifications + 1)"
+     @notifications-read.window="notifications = 0"
      @click="
         $dispatch('open-notifications'); 
         notifications = 0; 
         if ('vibrate' in navigator) navigator.vibrate(5);
-        
-        // --- Добавляем проверку для салюта при открытии через сайдбар ---
-        // Обращаемся к списку уведомлений (он лежит в соседнем x-data, но доступен через селектор или если объединить логику)
-        // Но проще всего оставить авто-бабах в самом окне уведомлений, который мы прописали выше.
      "
      class="w-full flex items-center gap-4 p-3 rounded-xl transition-all duration-300 border border-transparent group cursor-pointer"
      :class="notifications > 0 ? 'bg-brand/10 border-brand/20 shadow-[0_0_20px_rgba(212,175,55,0.05)]' : 'bg-white/5 border-white/10 hover:bg-white/10'">
-            <div class="relative">
-                <span class="text-xl transition-all duration-500" :class="notifications > 0 ? 'text-brand drop-shadow-gold scale-110 animate-bell' : 'text-slate-500 opacity-30 group-hover:opacity-100'">🔔</span>
+            <div class="relative flex items-center justify-center overflow-visible">
+                <span class="text-2xl transition-all duration-500" :class="notifications > 0 ? 'text-brand drop-shadow-gold scale-110 animate-bell' : 'text-slate-500 opacity-30 group-hover:opacity-100'">🔔</span>
                 <template x-if="notifications > 0">
-                    <span class="absolute -top-1.5 -right-1.5 bg-brand text-slate-900 text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-lg border border-white/10" x-text="notifications"></span>
+                    <span class="absolute -top-2 -right-2.5 flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded-full bg-gradient-to-tr from-brand via-amber-400 to-yellow-300 text-slate-950 text-xs font-black leading-none border-2 border-slate-900 shadow-[0_0_15px_rgba(212,175,55,0.9)] z-30 pointer-events-none">
+                        <span class="animate-ping absolute inset-0 rounded-full bg-brand opacity-50"></span>
+                        <span class="relative z-10" x-text="notifications"></span>
+                    </span>
                 </template>
             </div>
             <div class="flex flex-col leading-none">
@@ -248,36 +250,47 @@
                 </div>
             </template>
             <template x-for="(item, index) in list" :key="index">
-    <div @click="if(item.category === 'success') { 
-                confetti({
-                    particleCount: 100,
-                    spread: 70,
-                    origin: { y: 0.6 },
-                    colors: ['#d4af37', '#ffffff']
-                });
-                if ('vibrate' in navigator) navigator.vibrate(50);
-         }" 
-         :class="item.category === 'success' ? 'cursor-pointer hover:bg-white/10' : ''"
-         class="p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-brand/30 transition-all mb-3">
-        
-        <div class="flex items-start gap-3">
-            <div class="text-xl" x-text="item.category === 'success' ? '✨' : item.category === 'error' ? '⚠️' : 'ℹ️'"></div>
-            
-            <div class="flex-1">
-                <p class="text-sm text-slate-200 leading-relaxed font-medium" x-text="item.message"></p>
-                <template x-if="item.link">
-                    <a :href="item.link" class="text-brand hover:underline text-xs mt-2 block font-bold transition-all">Перейти к истории ➔</a>
-                </template>
-                <div class="flex justify-between items-center mt-2">
-                    <span class="text-[9px] font-bold text-slate-500 uppercase" x-text="item.created_at ? new Date(item.created_at).toLocaleTimeString() : new Date().toLocaleTimeString()"></span>
-                    <template x-if="item.category === 'success'">
-                        <span class="text-[8px] text-brand uppercase font-black animate-pulse">Нажми ✨</span>
-                    </template>
+                <div x-data="{ expanded: false }"
+                     @click="
+                        if (item.category === 'success') { 
+                            confetti({
+                                particleCount: 100,
+                                spread: 70,
+                                origin: { y: 0.6 },
+                                colors: ['#d4af37', '#ffffff']
+                            });
+                        }
+                        if ('vibrate' in navigator) navigator.vibrate(20);
+                        expanded = !expanded;
+                     " 
+                     class="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-brand/40 transition-all mb-3 cursor-pointer group hover:bg-white/10 select-none">
+                    
+                    <div class="flex items-start gap-3">
+                        <div class="text-xl shrink-0" x-text="item.category === 'success' ? '✨' : item.category === 'error' ? '⚠️' : 'ℹ️'"></div>
+                        
+                        <div class="flex-1 min-w-0">
+                            <template x-if="item.title">
+                                <h4 class="text-xs font-black uppercase text-brand tracking-wider mb-1" x-text="item.title"></h4>
+                            </template>
+                            <p class="text-sm text-slate-200 leading-relaxed font-medium transition-all" 
+                               :class="expanded ? '' : 'line-clamp-2'" 
+                               x-text="item.message"></p>
+
+                            <template x-if="item.link">
+                                <a :href="item.link" @click.stop class="text-brand hover:underline text-xs mt-2.5 inline-flex items-center gap-1 font-bold transition-all">
+                                    <span>Перейти к истории</span>
+                                    <span>➔</span>
+                                </a>
+                            </template>
+
+                            <div class="flex justify-between items-center mt-3 pt-2 border-t border-white/5">
+                                <span class="text-[9px] font-bold text-slate-400 uppercase" x-text="item.created_at ? new Date(item.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})"></span>
+                                <span class="text-[8px] text-slate-400 uppercase font-bold tracking-widest group-hover:text-brand transition-colors" x-text="expanded ? 'Свернуть ▲' : 'Развернуть ▼'"></span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
-    </div>
-</template>
+            </template>
         </div>
         <template x-if="list.length > 0">
             <div class="p-4 border-t border-white/10">

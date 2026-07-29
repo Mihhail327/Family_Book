@@ -1,12 +1,17 @@
-const CACHE_NAME = 'familybook-v3.0'; // Обновили версию для сброса циклов
+const CACHE_NAME = 'familybook-v4.0';
 
 const ASSETS = [
+    '/static/css/main.css',
+    '/static/css/style.css',
+    '/static/app.js',
+    '/static/manifest.json',
+    '/static/offline.html',
     '/static/icons/icon-192.png',
     '/static/icons/icon-512.png',
     '/static/sounds/notification.mp3'
 ];
 
-// 1. Установка: Кэшируем по одному, чтобы отсутствие файла не ломало установку
+// 1. Установка: Кэшируем ключевые ресурсы
 self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
@@ -18,7 +23,7 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// 2. Активация
+// 2. Активация: Очистка старых версий кэша
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((keys) => {
@@ -32,35 +37,52 @@ self.addEventListener('activate', (event) => {
     return self.clients.claim();
 });
 
-// 3. Обработка запросов (БЕЗОПАСНАЯ)
+// 3. Обработка сетевых запросов (Network First для навигации + Cache Fallback)
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // ✅ ПРАВИЛО 1: НЕ кэшируем навигацию, API и загрузки
-    // Это предотвращает бесконечный редирект между / и /login
+    // ✅ Игнорируем API, Auth и WebSocket запросы
     if (
-        event.request.mode === 'navigate' || 
         url.pathname.startsWith('/api/') || 
         url.pathname.startsWith('/posts/') ||
         url.pathname.includes('/auth/') ||
-        url.pathname.includes('/login')
+        url.pathname.includes('/ws/')
     ) {
-        return; 
+        return;
     }
 
-    // ✅ ПРАВИЛО 2: Для статики (иконки, звуки) - сначала кэш
+    // ✅ Стратегия для навигации (HTML страницы): Network First -> Fallback на offline.html
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            fetch(event.request).catch(() => {
+                return caches.match('/static/offline.html');
+            })
+        );
+        return;
+    }
+
+    // ✅ Стратегия для статики (CSS, JS, Иконки, Шрифты): Stale-While-Revalidate
     event.respondWith(
-        caches.match(event.request).then((response) => {
-            return response || fetch(event.request);
+        caches.match(event.request).then((cachedResponse) => {
+            const fetchPromise = fetch(event.request).then((networkResponse) => {
+                if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, responseToCache);
+                    });
+                }
+                return networkResponse;
+            }).catch(() => null);
+
+            return cachedResponse || fetchPromise;
         })
     );
 });
 
 // ==========================================
-// БЛОК PUSH-УВЕДОМЛЕНИЙ (МАСТЕР-ТЗ Раздел 5)
+// БЛОК PUSH-УВЕДОМЛЕНИЙ (Расширенный формат)
 // ==========================================
 
-// 4. Слушаем входящие Push-уведомления от сервера
 self.addEventListener('push', (event) => {
     let data = { 
         title: "FamilyBook", 
@@ -77,36 +99,38 @@ self.addEventListener('push', (event) => {
     }
 
     const options = {
-        body: data.body,
+        body: data.body || data.message || "У вас новое семейное уведомление",
         icon: '/static/icons/icon-192.png',
-        badge: '/static/icons/badge.png', // Сделай прозрачную PNG 96x96 белого цвета
-        vibrate: [200, 100, 200, 100, 200], // Haptics: тройная вибрация
-        sound: '/static/sounds/notification.mp3', // Тот самый "Дзынь"
+        badge: '/static/icons/icon-192.png',
+        vibrate: [200, 100, 200, 100, 200],
+        sound: '/static/sounds/notification.mp3',
+        tag: data.tag || 'familybook-push-' + Date.now(),
+        renotify: true,
         data: {
-            url: data.url || '/'
-        }
+            url: data.url || data.link || '/'
+        },
+        actions: [
+            { action: 'open', title: 'Открыть ➔' }
+        ]
     };
 
     event.waitUntil(
-        self.registration.showNotification(data.title, options)
+        self.registration.showNotification(data.title || "FamilyBook", options)
     );
 });
 
-// 5. Что делать, если пользователь тапнул по уведомлению
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const urlToOpen = event.notification.data.url;
+    const urlToOpen = event.notification.data ? event.notification.data.url : '/';
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-            // Если вкладка FamilyBook уже открыта, просто фокусируемся на ней
             for (let i = 0; i < windowClients.length; i++) {
                 const client = windowClients[i];
                 if (client.url.includes(urlToOpen) && 'focus' in client) {
                     return client.focus();
                 }
             }
-            // Иначе открываем новую вкладку
             if (clients.openWindow) {
                 return clients.openWindow(urlToOpen);
             }

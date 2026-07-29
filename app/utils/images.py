@@ -1,15 +1,15 @@
 import os
 from pathlib import Path
 from PIL import Image, ImageOps
-from typing import Optional, Union, BinaryIO
+from typing import BinaryIO
 from app.logger import log_error
 
 def process_and_save_image(
-    source_file: Union[BinaryIO, str], 
+    source_file: BinaryIO | str, 
     target_path: str, 
     max_size=(2560, 1440), 
     quality=85 
-) -> Optional[str]:
+) -> str | None:
     """
     Профессиональная обработка: EXIF, сохранение альфа-канала, сжатие в WebP.
     """
@@ -45,7 +45,7 @@ def process_and_save_image(
             return target_path_webp
             
     except Exception as e:
-        log_error("IMAGE_PROCESSING_ERROR", f"Файл {target_path}: {str(e)}")
+        log_error("IMAGE_PROCESSING_ERROR", f"Файл {target_path}: {e!s}")
         return None
 
 def resolve_static_path(url: str) -> Path:

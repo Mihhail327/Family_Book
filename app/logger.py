@@ -1,7 +1,6 @@
 import os
 import logging
 from logging.handlers import TimedRotatingFileHandler
-from typing import Optional
 from app.config import settings
 
 # 1. Используем путь из настроек
@@ -53,7 +52,7 @@ audit_logger = setup_logger("Audit", "audit.log")
 system_logger = setup_logger("System", "system.log")
 error_logger = setup_logger("Error", "error.log", level=logging.ERROR)
 
-def log_action(user: Optional[str], action: str, details: str):
+def log_action(user: str | None, action: str, details: str):
     username = user if user else "SYSTEM"
     message = f"👤 USER: {username} | ⚡ ACTION: {action} | 📝 DETAILS: {details}"
     
@@ -64,3 +63,16 @@ def log_action(user: Optional[str], action: str, details: str):
 
 def log_error(context: str, message: str):
     error_logger.error(f"❌ ERROR in {context}: {message}")
+
+def format_exception_details(exc: Exception) -> str:
+    """Форматирует стектрейс ошибки с указанием ключевых строк."""
+    import traceback
+    tb_lines = traceback.format_exception(type(exc), exc, exc.__traceback__)
+    return "".join(tb_lines[-4:]).strip()
+
+def log_exception(context: str, exc: Exception, user_info: str = "Anonymous"):
+    """Подробное логирование любого исключения с трассировкой."""
+    stack_info = format_exception_details(exc)
+    error_logger.error(
+        f"🔥 CRITICAL EXCEPTION [{context}] | User: {user_info} | Error: {type(exc).__name__}: {exc!s}\nTraceback:\n{stack_info}"
+    )

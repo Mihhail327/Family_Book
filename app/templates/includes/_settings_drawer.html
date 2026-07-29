@@ -64,12 +64,18 @@
                 </button>
             </div>
             <button onclick="subscribeToPushNotifications()" 
-        class="mt-4 w-full flex items-center justify-center gap-3 bg-white/5 border border-brand/30 hover:bg-brand/20 text-brand font-bold py-3 px-4 rounded-2xl transition-all active:scale-95 haptic-btn">
-    <svg class="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-    </svg>
-    Включить Push-уведомления
-</button>
+                    class="mt-4 w-full flex items-center justify-center gap-3 bg-white/5 border border-brand/30 hover:bg-brand/20 text-brand font-bold py-3 px-4 rounded-2xl transition-all active:scale-95 haptic-btn">
+                <svg class="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                </svg>
+                Включить Push-уведомления
+            </button>
+
+            <button onclick="installPWA()" 
+                    class="mt-3 w-full flex items-center justify-center gap-3 bg-gradient-to-r from-amber-500/20 to-brand/20 border border-brand/40 hover:bg-brand text-slate-900 dark:text-brand dark:hover:text-slate-950 font-black uppercase text-[10px] tracking-widest py-3.5 px-4 rounded-2xl transition-all active:scale-95 shadow-lg shadow-brand/10 haptic-btn">
+                <span class="text-base">📲</span>
+                <span>Установить приложение</span>
+            </button>
 
             <div class="flex items-center justify-between">
                 <div>
