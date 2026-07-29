@@ -181,6 +181,9 @@ async def deliver_push_notifications(
             if ex.response is not None and ex.response.status_code in [404, 410]:
                 session.delete(sub)
                 session.commit()
+        except Exception as e:
+            from app.logger import log_error
+            log_error("WEBPUSH_DELIVER_ERR", f"Не удалось отправить пуш для user_id={sub.user_id}: {e}")
 
 @router.get("/notifications")
 async def get_notifications(
