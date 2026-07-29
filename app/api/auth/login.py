@@ -96,8 +96,8 @@ async def login(request: Request, display_name: str = Form(...), session: Sessio
                     f"🛡️ **SECURITY: FAILED LOGIN**\n📍 Неизвестное имя: `{name}`\n🌐 IP: `{client_ip}`",
                     level="SECURITY"
                 ))
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as e:  # noqa: BLE001
+                log_error("LOGIN_ALERT_ERR", f"Не удалось отправить алерт авторизации: {e}")
         res = RedirectResponse("/auth/login", status_code=303)
         flash(res, "Семья тебя не узнала. Проверь имя или обратись за инвайтом!", "error")
         return res
